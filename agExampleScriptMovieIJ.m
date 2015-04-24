@@ -55,7 +55,10 @@ xx=sum(reshape(xtot,[mm.numFrames numel(xtot)/mm.numFrames]),2);
 yy=sum(reshape(ytot,[mm.numFrames numel(ytot)/mm.numFrames]),2);
 %% motion correct the original movie by applying the shifts computed by the algorithm
 mc=MovieIJ('./temp.tif',frameRate);
-mc.translateFrame(xx,yy);
+subpixelreg=0; % =1 if you want subpixel registration.DISCLAIMER:it
+            % will change the fluorescence of pixels because of the
+            % interpolation
+mc.translateFrame(xx,yy,subpixelreg);
 %% get the movie in matlab format (slow)
 data=mm.getMovie();
 %% save as tiff with same name

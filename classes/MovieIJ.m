@@ -344,8 +344,7 @@ classdef MovieIJ
             % save the object in a tiff file
             % saveToTiff(obj,filename)
             % if filename is not specified it will save with the original
-            % filename
-            
+            % filename            
             obj.selectWin();
             if nargin<2
                 ij.IJ.saveAsTiff(obj.movieId,obj.moviePath);
@@ -383,16 +382,23 @@ classdef MovieIJ
         end
         
         %% translate movie frames
-        function translateFrame(obj,xtransl,ytransl)
+        function translateFrame(obj,xtransl,ytransl,issubpixel)
             % translate frames by interpolating bicubically
-            %  translateFrame(obj,xtransl,ytransl)
+            %  translateFrame(obj,xtransl,ytransl,issubpixel)
             % xtransl,ytransl translation values in pixel (can be fractional)
+            % issubpixel=1 perform subpixel registration. DISCLAIMER:it
+            % will change the fluorescence of pixels because of the
+            % interpolation
             obj.selectWin();
             nframes=obj.numFrames;            
             if numel(xtransl)==nframes && numel(ytransl)==nframes
                 for fr=1:nframes      
                     ij.IJ.setSlice(fr)
-                    MIJ.run('Translate...', ['x=' num2str(xtransl(fr)) ' y=' num2str(ytransl(fr))  ' interpolation=Bicubic slice']);
+                    if issubpixel
+                        MIJ.run('Translate...', ['x=' num2str(xtransl(fr)) ' y=' num2str(ytransl(fr))  ' interpolation=Bicubic slice']);
+                    else
+                        MIJ.run('Translate...', ['x=' num2str(round(xtransl(fr))) ' y=' num2str(round(ytransl(fr)))  ' interpolation=None slice']);
+                    end
                 end
             else
                 error('function not implemented for whole stack')
