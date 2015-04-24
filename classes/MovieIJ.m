@@ -8,34 +8,7 @@ classdef MovieIJ
 %
 %     EXAMPLE OF USE
 % 
-%     movie=uipickfiles; % select movie to be processed
-%     frameRate=.033; % movie frame rate
-% 
-%     mm=MovieIJ(movie,frameRate); % create movie object
-%     [min_,max_,mean_,median_,std_]=mm.getStatistics(); % get some basic info about the movie
-%     mm=mm-min_; % to make sure movie is larger than 0.
-%     
-%     %make to make sure the format is consistent for different cases.
-%     mm.run('32-bit','')
-%     mm.run('16-bit','')
-%     
-%     % if you wasnt to increase the SNR you can downsample in the z direction
-%
-%     newNumberOfFrames=round(mm.numFrames/3);
-%     mm=mm.resize(0,0,newNumberOfFrames);
-%     %motion correct
-%     xtot=[];
-%     ytot=[];
-%     maxShift=5;
-%     numIterations=10;
-%     for kk=1:numIterations
-%         [mm,xshifts,yshifts]=mm.IJmotionCorrect(maxShift);
-%         xtot=[xtot; xshifts];
-%         ytot=[ytot; yshifts];
-%         plot([xtot ytot])
-%         drawnow
-%         axis tight
-%     end
+%     see file agExampleScriptMovieIJ.m
 % 
 % author:Andrea Giovannucci
 
@@ -166,14 +139,11 @@ classdef MovieIJ
     
     methods (Access = public)
         %% constructor
-        function obj = MovieIJ(moviePath,frameRate,copytmp)
+        function obj = MovieIJ(moviePath,frameRate)
             % constructor for the MovieIJ class
-            % obj = MovieIJ(moviePath,frameRate,copytmp)
-            % moviePath: cell containing path to tif file. Cell since in the future might contain multiple files to be chained together
+            % obj = MovieIJ(moviePath,frameRate)
+            % moviePath: cell containing path to tif file. 
             % frameRate: frame rate of the collected movie (at the moment only equally spaced frames are supported)
-            % copytmp: flag to decide whether to operate directly on the
-            % tiff file or create a security copy (with a '_tmp" extension
-            % appended)
             % 
             % EXAMPLES
             % movie=uipickfiles; % select movie to be processed
@@ -181,38 +151,31 @@ classdef MovieIJ
             % 
             % mm=MovieIJ(movie,frameRate); % create movie object
             
-            if nargin<3 % by default create a security copy
-                copytmp=1;
+            if nargin<2 % 
+                frameRate=1;
             end            
             
-            obj.movieId=ij.IJ.openImage(moviePath);  
+            obj.movieId=ij.IJ.openImage(moviePath); 
+            
             if isempty(obj.movieId)
                 error('File not opened (possibly not found)')
             end
                                     
-            if copytmp %makes security copy in case writing damages the file
-                moviePath={[moviePath{1}(1:end-4) '_tmp.tif']};
-                ij.IJ.saveAsTiff(obj.movieId,moviePath);
-                obj.movieId.close();
-                obj.movieId=ij.IJ.openImage(moviePath); 
-            end
-            try % in case we are using a bare tiff file with no metainformation
-                obj.numFrames=str2num(MovieIJ.getImageDescrParameter(moviePath{1},'frames'));            
-            catch
-                warning('Metainformation extraced by movie');
-                [~,~,obj.numFrames]=getDimensions(obj);
-            end
             obj.moviePath=moviePath;
-%             obj.timeVector=frameRate:frameRate:frameRate*(obj.numFrames);    
-            [pixelsperline,linesperframe,~]=getDimensions(obj);
+
+            [pixelsperline,linesperframe,nFrames]=getDimensions(obj);
+            
+            obj.numFrames=nFrames;
             obj.linesPerFrame=linesperframe;
             obj.pixelsPerLine=pixelsperline; 
             obj.frameRate=frameRate;
             
-            MovieIJ.setImageDescrParameter(moviePath{1},'timeVector',obj.timeVector);
-            MovieIJ.setImageDescrParameter(moviePath{1},'frameRate',obj.frameRate);
-            MovieIJ.setImageDescrParameter(moviePath{1},'moviePath',obj.moviePath);   
-            obj.movieId.show();
+            obj.movieId.show(); %the movie must be visible to perform operations on it
+%             obj.numFrames=str2num(MovieIJ.getImageDescrParameter(moviePath{1},'frames'));
+%             MovieIJ.setImageDescrParameter(moviePath{1},'timeVector',obj.timeVector);
+%             MovieIJ.setImageDescrParameter(moviePath{1},'frameRate',obj.frameRate);
+%             MovieIJ.setImageDescrParameter(moviePath{1},'moviePath',obj.moviePath);
+            
         end
         %% get movie dimensions
         function [pixelsperline,linesperframe,frames]=getDimensions(obj)
@@ -300,6 +263,7 @@ classdef MovieIJ
             % methodCorr, methodInterp: parameters from the plugin, Normally  methodCorr=5;
             % and methodInterp=1 work well           
             % xshifts,yshifts: shifts extimated by the algorithm                           
+            obj.selectWin();
             ig=obj.movieId;
             switch nargin
                 case 2
@@ -349,6 +313,7 @@ classdef MovieIJ
             % obj=resize(obj,0,0,100)
             % resample the movie in such a way that now there are 100
             % frames. it will interpolate in case of newz>oldz             
+            obj.selectWin();
             if x==0
                 x=obj.linesPerFrame;
             else
@@ -380,10 +345,13 @@ classdef MovieIJ
             % saveToTiff(obj,filename)
             % if filename is not specified it will save with the original
             % filename
+            
+            obj.selectWin();
             if nargin<2
                 ij.IJ.saveAsTiff(obj.movieId,obj.moviePath);
             else
                 ij.IJ.saveAsTiff(obj.movieId,filename)
+                obj.moviePath={filename};                
             end
         end
         
@@ -413,6 +381,24 @@ classdef MovieIJ
             end
             
         end
+        
+        %% translate movie frames
+        function translateFrame(obj,xtransl,ytransl)
+            % translate frames by interpolating bicubically
+            %  translateFrame(obj,xtransl,ytransl)
+            % xtransl,ytransl translation values in pixel (can be fractional)
+            obj.selectWin();
+            nframes=obj.numFrames;            
+            if numel(xtransl)==nframes && numel(ytransl)==nframes
+                for fr=1:nframes      
+                    ij.IJ.setSlice(fr)
+                    MIJ.run('Translate...', ['x=' num2str(xtransl(fr)) ' y=' num2str(ytransl(fr))  ' interpolation=Bicubic slice']);
+                end
+            else
+                error('function not implemented for whole stack')
+            end
+        end
+        
     end
     
 end
