@@ -12,11 +12,12 @@ frameRate=.033; % movie frame rate
 make_copy=1;
 mm=MovieIJ(movie,frameRate,make_copy); % create movie object
 [min_,max_,mean_,median_,std_]=mm.getStatistics(); % get some basic info about the movie
-if (min_>=-1000)
-    mm=mm-(-1000); % to make sure movie is larger than 0. Use a large value that will be ok for evey movie
-else 
-    error('The selected value is not large enough to make each pixel positive')
-end
+ mm=mm-min_;
+% if (min_>=-250)
+%     mm=mm-(-250); % to make sure movie is larger than 0. Use a large value that will be ok for evey movie
+% else 
+%     error('The selected value is not large enough to make each pixel positive')
+% end
 
 %% if you do not perform this operation matlab will not be able to properly read the values of the tiff file
 mm.run('32-bit','') 
@@ -49,4 +50,4 @@ data=mm.getMovie();
 %% save as tiff with same name
 mm.saveToTiff()
 %% save as tiff with different name
-mm.saveToTiff('caipirinha_before.tif')
+mm.saveToTiff('andrea_playing.tif')
