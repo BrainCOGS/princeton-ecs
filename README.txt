@@ -23,33 +23,7 @@ Requirements and installation
 
 EXAMPLE OF USE
 
-movie=uipickfiles; % select movie to be processed
-frameRate=.033; % movie frame rate
-
-mm=MovieIJ(movie,frameRate); % create movie object
-[min_,max_,mean_,median_,std_]=mm.getStatistics(); % get some basic info about the movie
-mm=mm-min_; % to make sure movie is larger than 0.
-
-%make to make sure the format is consistent for different cases.
-mm.run('32-bit','')
-mm.run('16-bit','')
-
-% if you wasnt to increase the SNR you can downsample in the z direction
-
-newNumberOfFrames=round(mm.numFrames/3);
-mm=mm.resize(0,0,newNumberOfFrames);
-%motion correct
-xtot=[];
-ytot=[];
-maxShift=5;
-numIterations=10;
-for kk=1:numIterations
-  [mm,xshifts,yshifts]=mm.IJmotionCorrect(maxShift);
-  xtot=[xtot; xshifts];
-  ytot=[ytot; yshifts];
-  plot([xtot ytot])
-  drawnow
-  axis tight
-end
+See agExampleScriptMovieIJ.m for a simplified and more tested version of the class
+See agExampleScriptXMovie.m for a more advanced and less tested version
 
 author:Andrea Giovannucci
