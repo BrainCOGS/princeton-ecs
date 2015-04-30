@@ -450,6 +450,7 @@ classdef XMovie
             % compute rolling percentile over window
             % obj=rollingPercentile(obj,percentile, window)     
             obj.selectWin();
+            warning('*** For Andrea:remember to update adding the new function agRunning Quantile that works on half window per size!!')
             disp('...retrieving movie...')
             signal=single(obj.getMovie());
             disp('...computing rolling percentile...')
