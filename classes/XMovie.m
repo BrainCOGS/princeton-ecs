@@ -127,7 +127,77 @@ classdef XMovie
             propStruct=MovieIJ.getImageDescrParameters(filename);
             val=propStruct.(par);                   
         end                   
-        
+        function [dendmask,neuropilMask]= extractCellsFromPCAICA(spcomps,minPixels,maxPixels,numSTD,gaussianxy,gaussiansigma)
+            % more efficient and possibly less precise version of extractCellsPCAICA
+            %TODO: remove hardcoded parameters. Depnds on movie size and
+            %magnification!! 
+            % numICAComp: number of components ICA algorithm
+            % numSVDComp: number of component PCA algorithm
+            % minPixels: minimum number of pixels to be accepted as a
+            % valid neuron
+            % minQuantileValue: used as a threshold for the extraction
+            % process. Try same values and see how it goes
+            % gaussianxy is a 2D vector exoressing smoothing  in x and y
+
+            [pixelsperline,linesperframe,~]=size(spcomps);
+%             maxPixels=(pixelsperline*linesperframe)/10;
+            if ~exist('gaussianxy')
+                gaussianxy=[11 3];
+                gaussiansigma=5;
+            end   
+            rowcols=ceil(sqrt(size(spcomps,3)));
+            % minCompValue=4;
+            dendmask=[];
+            neuropilMask=[];
+            for component=1:size(spcomps,3)
+                subplot(rowcols,rowcols,component)
+                disp(component)
+                comp=spcomps(:,:,component);
+                PSF = fspecial('gaussian',gaussianxy,gaussiansigma);
+                comp=imfilter(comp,PSF,'conv');
+                maxc=quantile(comp(:),.99);
+                minc=quantile(comp(:),.01);
+                comp=sign(maxc-abs(minc))*comp;
+%                 minCompValue=quantile(comp(:),minQuantileValue);
+                minCompValue=median(comp(:))+numSTD*iqr(comp(:))/1.35;
+                
+                compabs=comp.*(comp>minCompValue);
+                cc = bwconncomp(compabs>0, 4);
+                numPix=cellfun(@numel,cc.PixelIdxList);
+%                 imagesc(compabs,[-1 10])
+%                 drawnow
+
+                goodComps=find(numPix>minPixels & numPix<maxPixels);
+                %    disp(numPix(goodComps))
+                
+                for idx=goodComps
+                    %        idx
+                    newcomp=zeros(size(comp));
+                    newcomp(cc.PixelIdxList{idx})=comp(cc.PixelIdxList{idx});
+                    dendmask=cat(3,dendmask,newcomp);
+                end
+                neuropilComps=find(numPix>maxPixels);
+                for idx=neuropilComps
+                    %        idx
+                    newcomp=zeros(size(comp));
+                    newcomp(cc.PixelIdxList{idx})=comp(cc.PixelIdxList{idx});
+                    neuropilMask=cat(3,neuropilMask,newcomp);
+                end
+                close all
+                subplot(2,1,1)
+                agcolorful(dendmask>0);
+                axis image
+                subplot(2,1,2)
+                imagesc(compabs,[-1 10])
+                axis image
+                colorbar
+                drawnow
+
+            end
+            dendmask=cat(3,dendmask,sum(dendmask,3));
+            neuropilMask=cat(3,neuropilMask,sum(dendmask,3));
+            
+        end
     end
     
     methods (Access = protected)
@@ -412,7 +482,9 @@ classdef XMovie
             % translate frames by interpolating bicubically
             %  translateFrame(obj,xtransl,ytransl,issubpixel)
             % xtransl,ytransl translation values in pixel (can be fractional)
-            % issubpixel=1 perform subpixel registration. DISCLAIMER:it
+            % issubpixel=0: no subpixel registration 
+            % issubpixel=1 perform subpixel registration bilinear.
+            % issubpixel>1 perform subpixel registration bicubic. DISCLAIMER:it
             % will change the fluorescence of pixels because of the
             % interpolation
             obj.selectWin();
@@ -421,7 +493,11 @@ classdef XMovie
                 for fr=1:nframes      
                     ij.IJ.setSlice(fr)
                     if issubpixel
-                        MIJ.run('Translate...', ['x=' num2str(xtransl(fr)) ' y=' num2str(ytransl(fr))  ' interpolation=Bicubic slice']);
+                        if issubpixel==1 % bilinear interpolation
+                            MIJ.run('Translate...', ['x=' num2str(xtransl(fr)) ' y=' num2str(ytransl(fr))  ' interpolation=Bilinear slice']);
+                        else
+                            MIJ.run('Translate...', ['x=' num2str(xtransl(fr)) ' y=' num2str(ytransl(fr))  ' interpolation=Bicubic slice']);
+                        end
                     else
                         MIJ.run('Translate...', ['x=' num2str(round(xtransl(fr))) ' y=' num2str(round(ytransl(fr)))  ' interpolation=None slice']);
                     end
@@ -675,7 +751,7 @@ classdef XMovie
             if nargin<3 || ~scale % set the option to scaling or no scaling
                 MIJ.run('Conversions...','noscale'); %
             else
-                error('this option is very dangerous, not suggested')
+%                 error('this option is very dangerous, not suggested')
                 disp('if you really want to use comment the line above, at you rown risk')
                 MIJ.run('Conversions...','scale'); %
             end
@@ -758,6 +834,17 @@ classdef XMovie
             obj=rdivide(obj,movBL,isdestructive);            
             movBL.close(1);
         end
+        %% PCA ICA
+        function [icasig, A, W, E, D,spcomps,x]=compute_PCA_ICA(obj,numICAComp,numSVDComp)
+            mov=obj.getMovie();
+            numels=numel(mov);
+            if numel(find(isnan(mov)))>0.1*numels
+                error('Too many NaNs, the movies was not correctly transferred from ImageJ: try transforming to 16-bits')
+            end
+            [icasig, A, W, E, D,spcomps,x]=do_ica(mov,'tanh',numICAComp,numSVDComp);
+        end
+        %% extract dendrites
+
         %% enhance contrast
         function obj=setConstrast(obj,saturated)
         	obj=obj.run('Enhance Contrast', ['saturated=' num2str(saturated)]);
