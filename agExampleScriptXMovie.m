@@ -55,17 +55,21 @@ save('tmp_shifts','xtot','ytot')
 movMC=XMovie('./temp.tif');
 xx=sum(reshape(xtot,[movMC.numFrames numel(xtot)/movMC.numFrames]),2);
 yy=sum(reshape(ytot,[movMC.numFrames numel(ytot)/movMC.numFrames]),2);
+%%
+movMC=movMC-min_;
 %% motion correct the original movie by applying the shifts computed by the algorithm
 
-subpixelreg=0; % =1 if you want subpixel registration.DISCLAIMER:it
+subpixelreg=1; %subpixelreg=0: no subpixel registration 
+               %subpixelreg=1 if you want subpixel registration bilinear.
+               % subpixelreg>1 bicubic.  DISCLAIMER:it
             % will change the fluorescence of pixels because of the
             % interpolation
 movMC.translateFrame(xx,yy,subpixelreg);
 %%
-movMC.saveToTiff('temp_mc_nosubpix.tif')
+movMC.saveToTiff('temp_mc_subpix_linear.tif')
 movMC.movieId.close();
 %% compute DFF
-movOrig=XMovie('./temp_mc_nosubpix.tif');
+movOrig=XMovie('./temp_mc_subpix_linear.tif');
 movOrig.frameRate=.1;
 minValueF=15;
 quantileMin=.08;
@@ -73,10 +77,34 @@ rollingWindowTime=10;
 downsampleFactor=4;
 movDFF=computeDFFMovie(movOrig,minValueF,downsampleFactor,rollingWindowTime,quantileMin);
 movDFF.saveToTiff('./movDFF.tif')
-
-%% retrieve the movie
+movOrig.close();
+movDFF.close();
+ij.IJ.freeMemory;
+%% retrieve the movie double
+movDFF=XMovie('./movDFF.tif');
+newNumberOfFrames=round(movDFF.numFrames/6);
+movDFF=movDFF.resize(0,0,newNumberOfFrames);
 movDFF=movDFF.setConstrast(0);
-mat=movDFF.getMovie();
+% without this it returns NANs!!
+movDFF=movDFF.setBitDepth(16,1);
+movDFF=movDFF.setBitDepth(32,0);
+% mov=movDFF.getMovie();
+
+%%
+numICAComp=150;
+numSVDComp=150;
+[icasig, A, W, E, D,spcomps,x]=compute_PCA_ICA(movDFF,numICAComp,numSVDComp);
+save('icacomps','icasig','A', 'W', 'E', 'D','spcomps','x')
+%%
+load icacomps
+%%
+minPixels=50;
+maxPixels=2000;
+minQuantileValue=4;
+gaussianxy=[3 3];
+gaussiansigma=5;
+[dends,neuropmask]=XMovie.extractCellsFromPCAICA(spcomps,minPixels,maxPixels,minQuantileValue,gaussianxy,gaussiansigma);
+
 %% to retrieve the movie in single precision
 %% to get the  movie back from matlab you have to play a trick because ImageJ cannot handle 
 movDFF=XMovie('./movDFF.tif');
