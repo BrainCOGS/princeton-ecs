@@ -37,19 +37,18 @@ struct Median32VecMat
     // Loop over each pixel in the image stack
     for (int iRow = 0; iRow < median.rows; ++iRow) {
       // Pre-cache row pointers
-      //for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
-      //  pixRow[iFrame]          = stack[iFrame].ptr<Pixel>(firstRow + iRow) + firstCol;
+      for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
+        pixRow[iFrame]          = stack[iFrame].ptr<Pixel>(firstRow + iRow) + firstCol;
 
       float*        medRow      = median.ptr<float>(iRow);
       for (int iCol = 0; iCol < median.cols; ++iCol) {
 
         // Copy the stack of pixels into temporary storage
-        //for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
-        //  traceTemp[iFrame]     = pixRow[iFrame][iCol];
+        for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
+          traceTemp[iFrame]     = pixRow[iFrame][iCol];
 
         // Store the computed median
-        //medRow[iCol]            = quickSelect(traceTemp);
-        medRow[iCol]            = 100;
+        medRow[iCol]            = quickSelect(traceTemp);
       } // end loop over columns
     } // end loop over rows
   }

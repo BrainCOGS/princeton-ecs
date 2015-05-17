@@ -72,16 +72,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   //---------------------------------------------------------------------------
 
   // Load image with stored bit depth
-  std::vector<cv::Mat>        imgOrig;
-  if (!cv::imreadmulti(inputPath, imgOrig, cv::ImreadModes::IMREAD_ANYDEPTH | cv::ImreadModes::IMREAD_ANYCOLOR))
+  std::vector<cv::Mat>        imgStack;
+  if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_ANYDEPTH | cv::ImreadModes::IMREAD_ANYCOLOR))
     mexErrMsgIdAndTxt( "cvMotionCorrect:load", "Failed to load input image." );
-  if (imgOrig.empty())
+  if (imgStack.empty())
     mexErrMsgIdAndTxt( "cvMotionCorrect:load", "Input image has no frames." );
-  if (imgOrig[0].cols * imgOrig[0].rows < 3)
+  if (imgStack[0].cols * imgStack[0].rows < 3)
     mexErrMsgIdAndTxt( "cvMotionCorrect:load", "Input image too small, must have at least 3 pixels." );
 
   // Create output structures
-  const size_t                numFrames       = imgOrig.size();
+  const size_t                numFrames       = imgStack.size();
   double*                     xShifts         = 0;
   double*                     yShifts         = 0;
   if (nlhs > 0)             { plhs[0]         = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);    xShifts = mxGetPr(plhs[0]); }
@@ -91,14 +91,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   //---------------------------------------------------------------------------
 
   // The template size restricts the maximum allowable shift
-  const int                   firstRefRow     = min(maxShift, (imgOrig[0].rows - 1)/2);
-  const int                   firstRefCol     = min(maxShift, (imgOrig[0].cols - 1)/2);
+  const int                   firstRefRow     = min(maxShift, (imgStack[0].rows - 1)/2);
+  const int                   firstRefCol     = min(maxShift, (imgStack[0].cols - 1)/2);
 
   // Preallocate temporary storage for computations
-  cv::Mat                     frmClone  (imgOrig[0].rows                , imgOrig[0].cols                , imgOrig[0].type());
-  cv::Mat                     frmTemp   (imgOrig[0].rows                , imgOrig[0].cols                , CV_32F);
-  cv::Mat                     imgRef    (imgOrig[0].rows - 2*firstRefRow, imgOrig[0].cols - 2*firstRefCol, CV_32F);
-  cv::Mat                     metric    (2*firstRefRow + 1              , 2*firstRefCol + 1              , CV_32F);
+  cv::Mat                     frmClone  (imgStack[0].rows                , imgStack[0].cols                , imgStack[0].type());
+  cv::Mat                     frmTemp   (imgStack[0].rows                , imgStack[0].cols                , CV_32F);
+  cv::Mat                     imgRef    (imgStack[0].rows - 2*firstRefRow, imgStack[0].cols - 2*firstRefCol, CV_32F);
+  cv::Mat                     metric    (2*firstRefRow + 1               , 2*firstRefCol + 1               , CV_32F);
   std::vector<float>          traceTemp(numFrames);
 
   // Translation matrix, for use with sub-pixel registration
@@ -112,18 +112,29 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     yTrans[1]                 = 1;
   }
 
-  //cv::imshow("Original", imgOrig[0]);  cv::waitKey(1);
+  ushort*     u10     = imgStack[0].ptr<ushort>(10);
+  ushort      uu[20];
+  for (int i = 0; i < 20; ++i)  uu[i] = u10[i];
+  short*      s10     = imgStack[0].ptr<short>(10);
+  short       ss[20];
+  for (int i = 0; i < 20; ++i)  ss[i] = s10[i];
+  double minv, maxv;
+  cv::minMaxLoc(imgStack[0], &minv, &maxv);
+
+  cv::imshow("Original", imgStack[0]);  cv::waitKey(1);
 
   for (int iter = 0; iter < maxIter; ++iter) 
   {
     // Compute median image
-    cvCall<Median32VecMat>(imgOrig, imgRef, traceTemp, firstRefRow, firstRefCol);
-    //cv::imshow("Template", imgRef);  cv::waitKey(1);
+    cvCall<Median32VecMat>(imgStack, imgRef, traceTemp, firstRefRow, firstRefCol);
+    cv::imshow("Template", imgRef);  cv::waitKey(1);
+    float      dd[20];
+    for (int i = 0; i < 20; ++i)  dd[i] = imgRef.ptr<float>(10)[i];
 
     // Loop through frames and correct each one
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
-      imgOrig[iFrame].convertTo(frmTemp, CV_32F);
-      //cv::imshow("Image", frmTemp);  cv::waitKey(1);
+      imgStack[iFrame].convertTo(frmTemp, CV_32F);
+      cv::imshow("Image", frmTemp);  cv::waitKey(1);
 
       // Obtain metric values for all possible shifts and find the optimum
       cv::Point               optimum;
@@ -159,8 +170,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
         // Unfortunately we have to clone into a Mat object of the same type
         // because affine transforms cannot work in-situ (nor across types)
-        imgOrig[iFrame].copyTo(frmClone);
-        cv::warpAffine(frmClone, imgOrig[iFrame], translator, imgOrig[iFrame].size(), methodInterp);
+        imgStack[iFrame].copyTo(frmClone);
+        cv::warpAffine(frmClone, imgStack[iFrame], translator, imgStack[iFrame].size(), methodInterp);
 
         // Store the applied shifts
         if (xShifts) {
@@ -171,7 +182,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
       // In case of no sub-pixel interpolation, perform a simple (and fast) pixel shift
       else {
-        cvCall<CopyShiftedImage32>(imgOrig[iFrame], frmTemp, optimum.y, optimum.x, emptyValue);
+        cvCall<CopyShiftedImage32>(imgStack[iFrame], frmTemp, optimum.y, optimum.x, emptyValue);
 
         // Store the applied shifts
         if (xShifts) {
@@ -185,8 +196,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Output to disk
-  TIFF*                       header          = TIFFOpen(inputPath, "f");
-  TIFFClose(header);
+  cv::imwrite(outputPath, imgStack);
+  //TIFF*                       header          = TIFFOpen(inputPath, "r");
+  //TIFFClose(header);
 
   //---------------------------------------------------------------------------
   // Memory cleanup

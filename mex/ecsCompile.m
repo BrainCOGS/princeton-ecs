@@ -113,6 +113,7 @@ for iLib = 1:numel(THIRDPARTY)
   cvLibs{end+1} = sprintf('-l%s%s.lib', THIRDPARTY{iLib}, postfix);
 end
 
+
 %----------  mexopencv installation
 try
   MEXOPENCV     = mexopencv.root();

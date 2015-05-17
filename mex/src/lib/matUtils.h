@@ -42,7 +42,7 @@ void cvCall(Image& image)
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image);    break;
   case CV_8S :    TFunctor<schar >()(image);    break;
   case CV_16U:    TFunctor<ushort>()(image);    break;
@@ -50,7 +50,7 @@ void cvCall(Image& image)
   case CV_32S:    TFunctor<int   >()(image);    break;
   case CV_32F:    TFunctor<float >()(image);    break;
   case CV_64F:    TFunctor<double>()(image);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -65,7 +65,7 @@ void cvCall(Image& image, Arg1& arg1)
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1);    break;
@@ -73,7 +73,7 @@ void cvCall(Image& image, Arg1& arg1)
   case CV_32S:    TFunctor<int   >()(image, arg1);    break;
   case CV_32F:    TFunctor<float >()(image, arg1);    break;
   case CV_64F:    TFunctor<double>()(image, arg1);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -88,7 +88,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2)
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2);    break;
@@ -96,7 +96,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2)
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -111,7 +111,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3)
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3);    break;
@@ -119,7 +119,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3)
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -134,7 +134,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4)
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3, arg4);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3, arg4);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3, arg4);    break;
@@ -142,7 +142,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4)
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3, arg4);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3, arg4);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3, arg4);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -157,7 +157,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5);    break;
@@ -165,7 +165,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -180,7 +180,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
@@ -188,7 +188,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -203,7 +203,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
@@ -211,7 +211,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -226,7 +226,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
@@ -234,7 +234,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -249,7 +249,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
@@ -257,7 +257,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
@@ -272,7 +272,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   if (cvNumChannels(image) != 1)
     mexErrMsgIdAndTxt("cvCall:format", "Only grayscale images are supported.");
 
-  switch (cvType(image)) {
+  switch (cvBitDepth(image)) {
   case CV_8U :    TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
   case CV_8S :    TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
   case CV_16U:    TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
@@ -280,7 +280,7 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
   case CV_32S:    TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
   case CV_32F:    TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
   case CV_64F:    TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
-  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvType(image));     break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", cvBitDepth(image));     break;
   }
 }
 
