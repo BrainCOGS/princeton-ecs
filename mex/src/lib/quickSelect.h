@@ -28,9 +28,10 @@ Element quickSelect(std::vector<Element>& arr)
       return arr[median] ;
 
     if (high == low + 1) {  /* Two elements only */
-      if (arr[low] > arr[high])
-        std::swap(arr[low], arr[high]) ;
-      return arr[median] ;
+      //if (arr[low] > arr[high])
+      //  std::swap(arr[low], arr[high]) ;
+      //return arr[median] ;
+      return (arr[low] + arr[high]) / 2;    // Matlab does linear interpolation as well
     }
 
     /* Find median of low, middle and high items; swap into position low */

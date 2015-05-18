@@ -113,14 +113,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     yTrans[1]                 = 1;
   }
 
-  ushort*     u10     = imgStack[0].ptr<ushort>(10);
-  ushort      uu[20];
-  for (int i = 0; i < 20; ++i)  uu[i] = u10[i];
-  short*      s10     = imgStack[0].ptr<short>(10);
-  short       ss[20];
-  for (int i = 0; i < 20; ++i)  ss[i] = s10[i];
-  double minv, maxv;
-  cv::minMaxLoc(imgStack[0], &minv, &maxv);
 
   imshoweq("Original", imgStack[0]);
 
@@ -129,8 +121,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // Compute median image
     cvCall<Median32VecMat>(imgStack, imgRef, traceTemp, firstRefRow, firstRefCol);
     imshoweq("Template", imgRef);
-    float      dd[20];
-    for (int i = 0; i < 20; ++i)  dd[i] = imgRef.ptr<float>(10)[i];
 
     // Loop through frames and correct each one
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
@@ -144,22 +134,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             cv::minMaxLoc(metric, NULL, NULL, &optimum, NULL    );
       else  cv::minMaxLoc(metric, NULL, NULL, NULL    , &optimum);
 
-      float      m1[11], m2[11], m3[11], m4[11], m5[11], m6[11], m7[11], m8[11], m9[11], m10[11], m11[11];
-      for (int i = 0; i < 11; ++i)  m1 [i] = metric.ptr<float>(0 )[i];
-      for (int i = 0; i < 11; ++i)  m2 [i] = metric.ptr<float>(1 )[i];
-      for (int i = 0; i < 11; ++i)  m3 [i] = metric.ptr<float>(2 )[i];
-      for (int i = 0; i < 11; ++i)  m4 [i] = metric.ptr<float>(3 )[i];
-      for (int i = 0; i < 11; ++i)  m5 [i] = metric.ptr<float>(4 )[i];
-      for (int i = 0; i < 11; ++i)  m6 [i] = metric.ptr<float>(5 )[i];
-      for (int i = 0; i < 11; ++i)  m7 [i] = metric.ptr<float>(6 )[i];
-      for (int i = 0; i < 11; ++i)  m8 [i] = metric.ptr<float>(7 )[i];
-      for (int i = 0; i < 11; ++i)  m9 [i] = metric.ptr<float>(8 )[i];
-      for (int i = 0; i < 11; ++i)  m10[i] = metric.ptr<float>(9 )[i];
-      for (int i = 0; i < 11; ++i)  m11[i] = metric.ptr<float>(10)[i];
 
       // If interpolation is desired, use a gaussian peak fit to resolve it
       if (  (methodInterp >= 0)
-        &&  (!restrictInterp || (iter > 0 && optimum.x < 2 && optimum.y < 2))
+        &&  (!restrictInterp || (iter > 0 && (optimum.x-firstRefCol) < 3 && (optimum.y-firstRefRow) < 3))
         &&  (optimum.x > 0)
         &&  (optimum.x < metric.cols-1)
         &&  (optimum.y > 0)
