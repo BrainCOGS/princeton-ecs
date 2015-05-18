@@ -21,14 +21,14 @@
 
 
 #include <cmath>
-#include <opencv2\imgcodecs.hpp>
-#include <opencv2\imgproc.hpp>
-#include <opencv2\highgui.hpp>
-#include <libtiff\tiffio.h>
+#include <iostream>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <libtiff/tiffio.h>
 #include <mex.h>
-#include "lib\matUtils.h"
-#include "lib\medianImage.h"
-#include "lib\manipulateImage.h"
+#include "lib/matUtils.h"
+#include "lib/medianImage.h"
+#include "lib/manipulateImage.h"
 
 
 #define _DO_NOT_EXPORT
@@ -80,13 +80,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (imgStack[0].cols * imgStack[0].rows < 3)
     mexErrMsgIdAndTxt( "cvMotionCorrect:load", "Input image too small, must have at least 3 pixels." );
 
+  imgStack.resize(100);
+
   // Create output structures
   const size_t                numFrames       = imgStack.size();
   double*                     xShifts         = 0;
   double*                     yShifts         = 0;
   if (nlhs > 0)             { plhs[0]         = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);    xShifts = mxGetPr(plhs[0]); }
   if (nlhs > 1)             { plhs[1]         = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);    yShifts = mxGetPr(plhs[1]); }
-
 
   //---------------------------------------------------------------------------
 
@@ -121,20 +122,20 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   double minv, maxv;
   cv::minMaxLoc(imgStack[0], &minv, &maxv);
 
-  cv::imshow("Original", imgStack[0]);  cv::waitKey(1);
+  imshoweq("Original", imgStack[0]);
 
   for (int iter = 0; iter < maxIter; ++iter) 
   {
     // Compute median image
     cvCall<Median32VecMat>(imgStack, imgRef, traceTemp, firstRefRow, firstRefCol);
-    cv::imshow("Template", imgRef);  cv::waitKey(1);
+    imshoweq("Template", imgRef);
     float      dd[20];
     for (int i = 0; i < 20; ++i)  dd[i] = imgRef.ptr<float>(10)[i];
 
     // Loop through frames and correct each one
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
       imgStack[iFrame].convertTo(frmTemp, CV_32F);
-      cv::imshow("Image", frmTemp);  cv::waitKey(1);
+      imshoweq("Image", frmTemp);
 
       // Obtain metric values for all possible shifts and find the optimum
       cv::Point               optimum;
@@ -142,6 +143,19 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       if (methodCorr == cv::TemplateMatchModes::TM_SQDIFF || methodCorr == cv::TemplateMatchModes::TM_SQDIFF_NORMED)
             cv::minMaxLoc(metric, NULL, NULL, &optimum, NULL    );
       else  cv::minMaxLoc(metric, NULL, NULL, NULL    , &optimum);
+
+      float      m1[11], m2[11], m3[11], m4[11], m5[11], m6[11], m7[11], m8[11], m9[11], m10[11], m11[11];
+      for (int i = 0; i < 11; ++i)  m1 [i] = metric.ptr<float>(0 )[i];
+      for (int i = 0; i < 11; ++i)  m2 [i] = metric.ptr<float>(1 )[i];
+      for (int i = 0; i < 11; ++i)  m3 [i] = metric.ptr<float>(2 )[i];
+      for (int i = 0; i < 11; ++i)  m4 [i] = metric.ptr<float>(3 )[i];
+      for (int i = 0; i < 11; ++i)  m5 [i] = metric.ptr<float>(4 )[i];
+      for (int i = 0; i < 11; ++i)  m6 [i] = metric.ptr<float>(5 )[i];
+      for (int i = 0; i < 11; ++i)  m7 [i] = metric.ptr<float>(6 )[i];
+      for (int i = 0; i < 11; ++i)  m8 [i] = metric.ptr<float>(7 )[i];
+      for (int i = 0; i < 11; ++i)  m9 [i] = metric.ptr<float>(8 )[i];
+      for (int i = 0; i < 11; ++i)  m10[i] = metric.ptr<float>(9 )[i];
+      for (int i = 0; i < 11; ++i)  m11[i] = metric.ptr<float>(10)[i];
 
       // If interpolation is desired, use a gaussian peak fit to resolve it
       if (  (methodInterp >= 0)
@@ -165,13 +179,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         const double          ln21            = log(row2[optimum.x    ]);
 
         // 1D Gaussian interpolation in each direction
-        xTrans[2]             = optimum.x + float( ( ln10 - ln12 ) / ( 2 * ln10 - 4 * ln11 + 2 * ln12 ) );
-        yTrans[2]             = optimum.y + float( ( ln01 - ln21 ) / ( 2 * ln01 - 4 * ln11 + 2 * ln21 ) );
+        xTrans[2]             = -( optimum.x - firstRefCol + float( ( ln10 - ln12 ) / ( 2 * ln10 - 4 * ln11 + 2 * ln12 ) ) );
+        yTrans[2]             = -( optimum.y - firstRefRow + float( ( ln01 - ln21 ) / ( 2 * ln01 - 4 * ln11 + 2 * ln21 ) ) );
+        if (xTrans[2] != xTrans[2])           xTrans[2] = -( optimum.x - firstRefCol );
+        if (yTrans[2] != yTrans[2])           yTrans[2] = -( optimum.y - firstRefRow );
 
         // Unfortunately we have to clone into a Mat object of the same type
         // because affine transforms cannot work in-situ (nor across types)
         imgStack[iFrame].copyTo(frmClone);
         cv::warpAffine(frmClone, imgStack[iFrame], translator, imgStack[iFrame].size(), methodInterp);
+        imshoweq("Shifted", imgStack[iFrame]);
 
         // Store the applied shifts
         if (xShifts) {
@@ -182,7 +199,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
       // In case of no sub-pixel interpolation, perform a simple (and fast) pixel shift
       else {
+        // Remember that the template is offset
+        optimum.x             = -( optimum.x - firstRefCol );
+        optimum.y             = -( optimum.y - firstRefRow );
         cvCall<CopyShiftedImage32>(imgStack[iFrame], frmTemp, optimum.y, optimum.x, emptyValue);
+        imshoweq("Shifted", imgStack[iFrame]);
 
         // Store the applied shifts
         if (xShifts) {
@@ -196,7 +217,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Output to disk
-  cv::imwrite(outputPath, imgStack);
+  //cv::imwrite(outputPath, imgStack);
   //TIFF*                       header          = TIFFOpen(inputPath, "r");
   //TIFFClose(header);
 

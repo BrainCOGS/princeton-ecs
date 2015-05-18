@@ -10,6 +10,13 @@
 
 
 /**
+  Display an equalized image.
+*/
+void imshoweq(const std::string& winname, const cv::Mat& image, const int waitMS = 1);
+
+
+
+/**
   Convenience function to get the bit depth of an image or stack of images
   (assumed identical in encoding type).
 */

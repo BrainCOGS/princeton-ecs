@@ -47,6 +47,9 @@ struct Median32VecMat
         for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
           traceTemp[iFrame]     = pixRow[iFrame][iCol];
 
+        float      dd[20];
+        for (int i = 0; i < 20; ++i)  dd[i] = traceTemp[i];
+
         // Store the computed median
         medRow[iCol]            = quickSelect(traceTemp);
       } // end loop over columns

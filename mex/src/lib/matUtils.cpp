@@ -1,5 +1,31 @@
+#include <cmath>
 #include <mex.h>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 #include "matUtils.h"
+
+
+/**
+  Display an equalized image.
+*/
+void imshoweq(const std::string& winname, const cv::Mat& image, const int waitMS)
+{
+  //double          minValue, maxValue;
+  //cv::minMaxLoc(image, &minValue, &maxValue);
+  double          minValue  = -200;
+  double          maxValue  = 600;
+
+  cv::Mat         imgDisplay;
+  const double    scale   = 255. / std::max(1., maxValue - minValue);
+  image.convertTo(imgDisplay, CV_8U, scale, -scale*minValue);
+
+  //cv::equalizeHist(imgDisplay, imgDisplay);
+  cv::imshow(winname, imgDisplay);
+
+  if (waitMS >= 0)
+    cv::waitKey(waitMS);
+}
+
 
 
 /**

@@ -9,9 +9,15 @@
 #ifndef TIFFSTACK_H
 #define TIFFSTACK_H
 
+#include <string>
+#include <opencv2\core.hpp>
 #include <libtiff\tiffio.h>
 
 
+bool  tiffwrite ( const std::string&    outputFile
+                , cv::InputArray img
+                , const int             flags   = 0
+                );
 
 
 #endif //TIFFSTACK_H
