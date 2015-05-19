@@ -1,4 +1,5 @@
 #include <cmath>
+#include <climits>
 #include <mex.h>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
@@ -10,20 +11,82 @@
 */
 void imshoweq(const std::string& winname, const cv::Mat& image, const int waitMS)
 {
-  //double          minValue, maxValue;
-  //cv::minMaxLoc(image, &minValue, &maxValue);
-  double          minValue  = -200;
-  double          maxValue  = 600;
+  double                minValue, maxValue;
+  cv::minMaxLoc(image, &minValue, &maxValue);
 
-  cv::Mat         imgDisplay;
-  const double    scale   = 255. / std::max(1., maxValue - minValue);
+  double                scale   = 255. / (maxValue - minValue);
+  if (scale != scale)   scale   = 1;
+  
+  cv::Mat               imgDisplay;
   image.convertTo(imgDisplay, CV_8U, scale, -scale*minValue);
-
-  //cv::equalizeHist(imgDisplay, imgDisplay);
+  cv::equalizeHist(imgDisplay, imgDisplay);
   cv::imshow(winname, imgDisplay);
 
   if (waitMS >= 0)
     cv::waitKey(waitMS);
+}
+
+/**
+  Display a scaled image, with pixels transformed as \alpha \times x + \beta.
+*/
+void imshowsc(const std::string& winname, const cv::Mat& image, const double alpha, const double beta, const int waitMS)
+{
+  cv::Mat         imgDisplay;
+  image.convertTo(imgDisplay, CV_8U, alpha, beta);
+  cv::imshow(winname, imgDisplay);
+
+  if (waitMS >= 0)
+    cv::waitKey(waitMS);
+}
+
+/**
+  Display an image scaled so that minValue corresponds to black and maxValue to white.
+*/
+void imshowrange(const std::string& winname, const cv::Mat& image, const double minValue, const double maxValue, const int waitMS)
+{
+  double                scale   = 255. / (maxValue - minValue);
+  if (scale != scale)   scale   = 1;
+  
+  cv::Mat               imgDisplay;
+  image.convertTo(imgDisplay, CV_8U, scale, -scale*minValue);
+  cv::imshow(winname, imgDisplay);
+
+  if (waitMS >= 0)
+    cv::waitKey(waitMS);
+}
+
+/**
+  Convenience function to return the min and max data type range for a given
+  cv::Mat bit depth. The return value is the range (max - min).
+*/
+double cvBitRange(const int bitDepth, double& minValue, double& maxValue)
+{
+  switch (bitDepth) {
+  case CV_8U :    minValue  = std::numeric_limits<uchar >::min();
+                  maxValue  = std::numeric_limits<uchar >::max();
+                  break;                                
+  case CV_8S :    minValue  = std::numeric_limits<schar >::min();
+                  maxValue  = std::numeric_limits<schar >::max();
+                  break;                                
+  case CV_16U:    minValue  = std::numeric_limits<ushort>::min();
+                  maxValue  = std::numeric_limits<ushort>::max();
+                  break;                                
+  case CV_16S:    minValue  = std::numeric_limits<short >::min();
+                  maxValue  = std::numeric_limits<short >::max();
+                  break;                                
+  case CV_32S:    minValue  = std::numeric_limits<int   >::min();
+                  maxValue  = std::numeric_limits<int   >::max();
+                  break;                                
+  case CV_32F:    minValue  = std::numeric_limits<float >::min();
+                  maxValue  = std::numeric_limits<float >::max();
+                  break;                                
+  case CV_64F:    minValue  = std::numeric_limits<double>::min();
+                  maxValue  = std::numeric_limits<double>::max();
+                  break;
+  default:        mexErrMsgIdAndTxt("cvCall:bitdepth", "Unsupported bit depth %d.", bitDepth);    break;
+  }
+
+  return (maxValue - minValue);
 }
 
 

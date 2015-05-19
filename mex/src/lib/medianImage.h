@@ -17,7 +17,7 @@
 
 
 template<typename Pixel>
-struct Median32VecMat
+struct MedianVecMat32
 {
   void operator()(const std::vector<cv::Mat>& stack, cv::Mat& median, std::vector<float>& traceTemp, int firstRow, int firstCol)
   {
@@ -46,9 +46,6 @@ struct Median32VecMat
         // Copy the stack of pixels into temporary storage
         for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
           traceTemp[iFrame]     = pixRow[iFrame][iCol];
-
-        float      dd[20];
-        for (int i = 0; i < 20; ++i)  dd[i] = traceTemp[i];
 
         // Store the computed median
         medRow[iCol]            = quickSelect(traceTemp);

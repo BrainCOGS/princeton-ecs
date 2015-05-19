@@ -14,6 +14,22 @@
 */
 void imshoweq(const std::string& winname, const cv::Mat& image, const int waitMS = 1);
 
+/**
+  Display a scaled image, with pixels transformed as \alpha \times x + \beta.
+*/
+void imshowsc(const std::string& winname, const cv::Mat& image, const double alpha, const double beta, const int waitMS = 1);
+
+/**
+  Display an image scaled so that minValue corresponds to black and maxValue to white.
+*/
+void imshowrange(const std::string& winname, const cv::Mat& image, const double minValue, const double maxValue, const int waitMS = 1);
+
+
+/**
+  Convenience function to return the min and max data type range for a given
+  cv::Mat bit depth. The return value is the range (max - min).
+*/
+double cvBitRange(const int bitDepth, double& minValue, double& maxValue);
 
 
 /**
