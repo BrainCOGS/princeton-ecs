@@ -1,0 +1,9 @@
+classdef UMatUsageFlags
+  properties (Constant)
+    USAGE_DEFAULT = 0
+    USAGE_ALLOCATE_HOST_MEMORY = 1
+    USAGE_ALLOCATE_DEVICE_MEMORY = 1
+    USAGE_ALLOCATE_SHARED_MEMORY = 1
+    __UMAT_USAGE_FLAGS_32BIT = 0
+  end
+end

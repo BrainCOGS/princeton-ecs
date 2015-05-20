@@ -3,10 +3,11 @@
 
   Usage syntax:
     [xShifts, yShifts, numIterations]
-        = cv.motionCorrect( inputPath, outputPath, maxShift, maxIter   ...
-                          , [displayProgress = false]                  ...
-                          , [stopBelowShift = 0], [methodInterp = -1]  ...
-                          , [methodCorr = 5], [emptyValue = mean]      ...
+        = cv.motionCorrect( inputPath, outputPath, maxShift, maxIter                ...
+                          , [displayProgress = false], [stopBelowShift = 0]         ...
+                          , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]    ...
+                          , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]  ...
+                          , [emptyValue = mean]                                     ...
                           );
 
   The output is stored in the given outputPath, **overwriting** if the file already exists.
@@ -50,9 +51,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
   if (nrhs < 4 || nrhs > 9 || nlhs > 3) {
-    mexErrMsgIdAndTxt ( "motionCorrect:usage"
-                      , "Usage:\n   [xShifts, yShifts, numIterations] = motionCorrect(inputPath, outputPath, maxShift, maxIter, [displayProgress = false], [stopBelowShift = 0], [methodInterp = -1], [methodCorr = 5], [emptyValue = mean])"
-                      );
+    mexEvalString("help cv.motionCorrect");
+    mexErrMsgIdAndTxt ( "motionCorrect:usage", "Incorrect number of inputs/outputs provided." );
   }
   if (!mxIsChar(prhs[0]))     mexErrMsgIdAndTxt("motionCorrect:arguments", "inputPath must be a string.");
   if (!mxIsChar(prhs[1]))     mexErrMsgIdAndTxt("motionCorrect:arguments", "inputPath must be a string.");
@@ -82,8 +82,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mexErrMsgIdAndTxt( "motionCorrect:load", "Input image has no frames." );
   if (imgStack[0].cols * imgStack[0].rows < 3)
     mexErrMsgIdAndTxt( "motionCorrect:load", "Input image too small, must have at least 3 pixels." );
-
-  imgStack.resize(100);
 
   // Create output structures
   const size_t                numFrames       = imgStack.size();
@@ -193,13 +191,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     // Compute median image
     cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
-    imshowrange("Template", imgRef, showMin, showMax);
+    if (displayProgress)      imshowrange("Template", imgRef, showMin, showMax);
 
     // Loop through frames and correct each one
     double                    maxRelShift     = -1e308;
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame, ++iShift) {
       imgStack[iFrame].convertTo(frmTemp, CV_32F, pixScale, pixShift);
-      imshowrange("Image", frmTemp, showMin, showMax);
+      //if (displayProgress)    imshowrange("Image", frmTemp, showMin, showMax);
 
       // Obtain metric values for all possible shifts and find the optimum
       cv::Point               optimum;
@@ -242,7 +240,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         cv::warpAffine( frmTemp, imgShifted[iFrame], translator, frmTemp.size()
                       , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
                       );
-        imshowrange("Shifted", imgShifted[iFrame], showMin, showMax);
       }
 
       // In case of no sub-pixel interpolation, perform a simple (and fast) pixel shift
@@ -251,7 +248,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         colShift              = -( optimum.x - firstRefCol );
         rowShift              = -( optimum.y - firstRefRow );
         cvCall<CopyShiftedImage32>(imgShifted[iFrame], frmTemp, colShift, rowShift, emptyValue[0]);
-        imshowrange("Shifted", imgShifted[iFrame], showMin, showMax);
       }
 
       // Record history of shifts
@@ -259,6 +255,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       maxRelShift             = std::max(maxRelShift, std::fabs(rowShift - yShifts[iShift - iPrevY]));
       xShifts[iShift]         = colShift;
       yShifts[iShift]         = rowShift;
+       
+      if (displayProgress)    imshowrange("Corrected", imgShifted[iFrame], showMin, showMax);
     } // end loop over frames
 
 

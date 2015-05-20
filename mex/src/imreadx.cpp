@@ -1,10 +1,9 @@
 /**
-  Loads the given image stack into memory, applying row/column shifts
-  (rigid translation) to each frame. If sub-pixel registration is
-  requested, cv::warpAffine() is used.
-
+  Loads the given image stack into memory, applying row/column shifts (rigid translation) to each frame.
+ 
+  If sub-pixel registration is requested, cv::warpAffine() is used.
   Usage syntax:
-    image = imreadtrans( inputPath, dx, dy, [methodInterp = -1] );
+    image = imreadx( inputPath, dx, dy, [methodInterp = 1] );
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -39,18 +38,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
   if (nrhs < 3 || nrhs > 4 || nlhs > 1) {
-    mexErrMsgIdAndTxt ( "imreadtrans:usage"
-                      , "Usage:\n   image = imreadtrans(inputPath, dx, dy, [methodInterp = -1])"
-                      );
+    mexEvalString("help cv.imreadx");
+    mexErrMsgIdAndTxt ( "imreadx:usage", "Incorrect number of inputs/outputs provided." );
   }
-  if (!mxIsChar(prhs[0]))     mexErrMsgIdAndTxt("imreadtrans:arguments", "inputPath must be a string.");
+  if (!mxIsChar(prhs[0]))     mexErrMsgIdAndTxt("imreadx:arguments", "inputPath must be a string.");
 
 
   // Parse input
   char*                       inputPath       = mxArrayToString(prhs[0]);
   const double*               xShift          = mxGetPr(prhs[1]);
   const double*               yShift          = mxGetPr(prhs[2]);
-  const int                   methodInterp    = ( nrhs > 3 ? int( mxGetScalar(prhs[3]) )   : cv::InterpolationFlags::INTER_LINEAR     );
+  const int                   methodInterp    = ( nrhs > 3 ? int( mxGetScalar(prhs[3]) ) : cv::InterpolationFlags::INTER_LINEAR );
   const bool                  subPixelReg     = ( methodInterp >= 0 );
 
 
@@ -59,12 +57,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Load image with stored bit depth
   std::vector<cv::Mat>        imgStack;
   if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_ANYDEPTH | cv::ImreadModes::IMREAD_ANYCOLOR))
-    mexErrMsgIdAndTxt( "imreadtrans:load", "Failed to load input image." );
+    mexErrMsgIdAndTxt( "imreadx:load", "Failed to load input image." );
   if (imgStack.empty())
-    mexErrMsgIdAndTxt( "imreadtrans:load", "Input image has no frames." );
+    mexErrMsgIdAndTxt( "imreadx:load", "Input image has no frames." );
   if (imgStack[0].depth() > CV_32F)
-    mexErrMsgIdAndTxt( "imreadtrans:bitdepth", "64-bit (double) precision data not supported yet." );
-  imgStack.resize(100);
+    mexErrMsgIdAndTxt( "imreadx:bitdepth", "64-bit (double) precision data not supported yet." );
 
   // Create output structure
   const size_t                numFrames       = imgStack.size();
@@ -74,9 +71,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Check that we have enough frame shifts
   if (mxGetNumberOfElements(prhs[1]) != numFrames)
-    mexErrMsgIdAndTxt( "imreadtrans:load", "Number of dx shifts (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
+    mexErrMsgIdAndTxt( "imreadx:load", "Number of dx shifts (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
   if (mxGetNumberOfElements(prhs[2]) != numFrames)
-    mexErrMsgIdAndTxt( "imreadtrans:load", "Number of dy shifts (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
+    mexErrMsgIdAndTxt( "imreadx:load", "Number of dy shifts (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
 
   // Translation matrix, for use with sub-pixel registration
   cv::Mat                     translator(2, 3, CV_32F);

@@ -42,12 +42,15 @@ function ecsCompile(varargin)
 
 lazy            = true;
 debug           = false;
+genEnums        = false;
 for iArg = numel(varargin):-1:1
   if strcmp(varargin{iArg}, '-F')
     lazy        = false;
     varargin(iArg)  = [];
   elseif strcmp(varargin{iArg}, '-g')
     debug       = true;
+  elseif strcmp(varargin{iArg}, '-E')
+    genEnums    = true;
   end
 end
 
@@ -62,6 +65,7 @@ ECS_SRC         = fullfile(PRINCETONECS, 'src');
 ECS_PRIVATE     = fullfile(ECS_SRC     , 'private');
 ECS_LIB         = fullfile(ECS_SRC     , 'lib');
 MEX_CV          = fullfile(PRINCETONECS, '+cv');
+MEX_CVENUM      = fullfile(PRINCETONECS, '+cve');
 MEX_ECS         = fullfile(PRINCETONECS, '+ecs');
 PRIVATE_CV      = fullfile(PRINCETONECS, '+cv' , 'private');
 PRIVATE_ECS     = fullfile(PRINCETONECS, '+ecs', 'private');
@@ -186,6 +190,11 @@ doCompile(cvSrc , ECS_SRC, MEX_CV , mexext, cvOpts , true, lazy);
 doCompile(ecsSrc, ECS_PRIVATE, PRIVATE_ECS, mexext, ecsOpts, true, lazy);
 doCompile(cvSrc , ECS_PRIVATE, PRIVATE_CV , mexext, cvOpts , true, lazy);
 
+% Generate enumeration types
+if genEnums
+  generateEnums(fullfile(OPENCV_INC, 'opencv2'), MEX_CVENUM);
+end
+
 
 fprintf('\n\n     ********************  Princeton ECS compilation complete  ********************\n\n');
 
@@ -290,7 +299,7 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
       
       [~,target,~]  = fileparts(target);
       targetID      = fopen(fullfile(outDir, [target '.m']), 'w');
-      fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                         ...
+      fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
               , upper(target), srcDoc{1}{1}                             ...
               , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
               );
@@ -301,4 +310,77 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
   % Cleanup and exit
   close(hWait);
 
+end
+
+%%
+function generateEnums(incPath, outPath)
+
+  hWait           = waitbar(0, strrep(incPath, '\', '\\'));
+  listing         = dir(incPath);
+  
+  for iList = 1:numel(listing)
+    waitbar(iList / numel(listing), hWait);
+    
+    % Only process header files
+    [~,name,ext]  = fileparts(listing(iList).name);
+    if ~strcmpi(ext, '.hpp')
+      continue;
+    end
+    
+    % Search for named enums
+    source        = fileread(fullfile(incPath, listing(iList).name));
+    enums         = regexp(source, '\<enum\s+(\w+)\s*{\s*(.*?)\s*}\s*;', 'tokens');
+
+    for iEnum = 1:numel(enums)
+      % Clean up comments
+      def         = regexprep(enums{iEnum}{2}, '(//.*?$)|(/\*\*.*?\*/)', '', 'lineanchors');
+      createEnumeration(enums{iEnum}{1}, def, outPath);
+    end
+    
+    % Search for printable enums
+    enums         = regexp(source, '(?<!#define\s+)\<CV_ENUM\s*\((\w+)\s*,\s*(.*?)\s*)', 'tokens');
+    for iEnum = 1:numel(enums)
+      createEnumeration(enums{iEnum}{1}, enums{iEnum}{2}, outPath);
+    end
+  end
+  
+  close(hWait);
+  
+
+  % Recursive call for subdirectories
+  for iList = 1:numel(listing)
+    if listing(iList).isdir && ~all(listing(iList).name == '.')
+      generateEnums ( fullfile(incPath, listing(iList).name)        ...
+                    , fullfile(outPath, ['+' listing(iList).name])  ...
+                    );
+    end
+  end
+  
+end
+
+%%
+function createEnumeration(name, contents, outPath)
+
+  % Create enumeration file
+  if ~exist(outPath, 'dir')
+    mkdir(outPath);
+  end
+  outFID      = fopen(fullfile(outPath, [name '.m']), 'w');
+  fprintf(outFID, 'classdef %s\n  properties (Constant)\n', name);
+
+  def         = regexp(contents, ',', 'split');
+  for iDef = 1:numel(def)
+    % Parse for enum name and value
+    value     = regexp(def{iDef}, '(\w+)\s*(=\s*[-+]*\d+)?', 'tokens', 'once');
+    if isempty(value{2})
+      value{2}= iDef - 1;
+    else
+      value{2}= str2double(value{2}(2:end));
+    end
+    fprintf(outFID, '    %s = %d\n', value{:});
+  end
+
+  fprintf(outFID, '  end\nend\n');
+  fclose(outFID);
+  
 end
