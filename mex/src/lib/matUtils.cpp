@@ -88,7 +88,11 @@ double cvBitRange(const int bitDepth, double& minValue, double& maxValue)
 
   return (maxValue - minValue);
 }
-
+double cvBitRange(const int bitDepth)
+{
+  double  minValue, maxValue;
+  return cvBitRange(bitDepth, minValue, maxValue);
+}
 
 
 /**

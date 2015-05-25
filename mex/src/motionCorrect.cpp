@@ -3,7 +3,7 @@
 
   Usage syntax:
     [xShifts, yShifts, numIterations]
-        = cv.motionCorrect( inputPath, outputPath, maxShift, maxIter                ...
+        = cv.motionCorrect( inputPath, maxShift, maxIter                            ...
                           , [displayProgress = false], [stopBelowShift = 0]         ...
                           , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]    ...
                           , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]  ...
@@ -50,25 +50,23 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 4 || nrhs > 9 || nlhs > 3) {
+  if (nrhs < 3 || nrhs > 8 || nlhs > 3) {
     mexEvalString("help cv.motionCorrect");
     mexErrMsgIdAndTxt ( "motionCorrect:usage", "Incorrect number of inputs/outputs provided." );
   }
   if (!mxIsChar(prhs[0]))     mexErrMsgIdAndTxt("motionCorrect:arguments", "inputPath must be a string.");
-  if (!mxIsChar(prhs[1]))     mexErrMsgIdAndTxt("motionCorrect:arguments", "inputPath must be a string.");
 
 
   // Parse input
   char*                       inputPath       = mxArrayToString(prhs[0]);
-  char*                       outputPath      = mxArrayToString(prhs[1]);
-  const int                   maxShift        = int( mxGetScalar(prhs[2]) );
-  const int                   maxIter         = int( mxGetScalar(prhs[3]) );
-  const bool                  displayProgress = ( nrhs > 4 ? mxGetScalar(prhs[4]) > 0      : false  );
-  const double                stopBelowShift  = ( nrhs > 5 ? mxGetScalar(prhs[5])          : 0.     );
-  const int                   methodInterp    = ( nrhs > 6 ? int( mxGetScalar(prhs[6]) )   : cv::InterpolationFlags::INTER_LINEAR     );
-  const int                   methodCorr      = ( nrhs > 7 ? int( mxGetScalar(prhs[7]) )   : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
-  const double                usrEmptyValue   = ( nrhs > 8 ? mxGetScalar(prhs[8])          : 0.     );
-  const bool                  emptyIsMean     = ( nrhs < 9 );
+  const int                   maxShift        = int( mxGetScalar(prhs[1]) );
+  const int                   maxIter         = int( mxGetScalar(prhs[2]) );
+  const bool                  displayProgress = ( nrhs > 3 ? mxGetScalar(prhs[3]) > 0     : false  );
+  const double                stopBelowShift  = ( nrhs > 4 ? mxGetScalar(prhs[4])         : 0.     );
+  const int                   methodInterp    = ( nrhs > 5 ? int( mxGetScalar(prhs[5]) )  : cv::InterpolationFlags::INTER_LINEAR     );
+  const int                   methodCorr      = ( nrhs > 6 ? int( mxGetScalar(prhs[6]) )  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
+  const double                usrEmptyValue   = ( nrhs > 7 ?      mxGetScalar(prhs[7])    : 0.     );
+  const bool                  emptyIsMean     = ( nrhs < 8 );
   const bool                  subPixelReg     = ( methodInterp >= 0 );
 
 
@@ -76,7 +74,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Load image with stored bit depth
   std::vector<cv::Mat>        imgStack;
-  if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_ANYDEPTH | cv::ImreadModes::IMREAD_ANYCOLOR))
+  if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_UNCHANGED))
     mexErrMsgIdAndTxt( "motionCorrect:load", "Failed to load input image." );
   if (imgStack.empty())
     mexErrMsgIdAndTxt( "motionCorrect:load", "Input image has no frames." );
@@ -139,7 +137,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   double                      pixScale, pixShift;
   if (isIntegral) {
-    pixScale                  = 255. / (maxValue - minValue);
+    pixScale                  = cvBitRange(scratchType) / (maxValue - minValue);
     pixShift                  = -pixScale* minValue;
   } else {
     pixScale                  = 1;
@@ -274,7 +272,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   //---------------------------------------------------------------------------
   // Memory cleanup
   mxFree(inputPath);
-  mxFree(outputPath);
 
   if (nlhs < 1)               delete[] xShifts;
   if (nlhs < 2)               delete[] yShifts;

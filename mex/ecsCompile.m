@@ -64,6 +64,7 @@ PRINCETONECS    = fileparts(mfilename('fullpath'));
 ECS_SRC         = fullfile(PRINCETONECS, 'src');
 ECS_PRIVATE     = fullfile(ECS_SRC     , 'private');
 ECS_LIB         = fullfile(ECS_SRC     , 'lib');
+ECS_OPENCV      = fullfile(ECS_SRC     , 'opencv');
 MEX_CV          = fullfile(PRINCETONECS, '+cv');
 MEX_CVENUM      = fullfile(PRINCETONECS, '+cve');
 MEX_ECS         = fullfile(PRINCETONECS, '+ecs');
@@ -155,6 +156,7 @@ cvOpts        = [ varargin                                ...
                 , { '-largeArrayDims'                     ...
                   , sprintf('-I"%s"', OPENCV_INC)         ...
                   , sprintf('-I"%s"', MEXOPENCV_INC)      ...
+                  , sprintf('-I"%s"', ECS_OPENCV)         ...
                   , sprintf('-L"%s"', OPENCV_LIB)         ...
                   , sprintf('-L"%s"', OPENCV_3RD)         ...
                   , '-DWIN32'                             ... libtiff
@@ -168,6 +170,10 @@ cvOpts        = [ varargin                                ...
 %   Compilation procedure
 %===================================================================================================
 
+% Compile OpenCV clones
+opencvObjs    = doCompile(dir(fullfile(ECS_OPENCV, '*.cpp')), ECS_OPENCV, ECS_OPENCV, 'obj', [{'-c'} cvOpts], false, lazy);
+cvOpts        = [cvOpts , opencvObjs];
+  
 % Get separate lists of OpenCV dependent and non-dependent code files
 [cvSrc,ecsSrc]= getMEXCode(ECS_LIB, '*.cpp');
 
@@ -211,7 +217,7 @@ function [cvMex, otherMex] = getMEXCode(srcDir, srcMask)
   for iFile = numel(srcFile):-1:1
     source            = fileread(srcFile(iFile).name);
     cvMatch           = regexp( source                                                        ...
-                              , '^\s*#\s*include\s+.*mexopencv[.]hpp|\<cv\s*::|\<CV_|\<TIFF'  ...
+                              , '^\s*#\s*include\s+.*(mexopencv[.]hpp|opencv)|\<cv\s*::|\<CV_|\<TIFF|\<Cv[A-Z]'  ...
                               , 'lineanchors', 'dotexceptnewline', 'once'                     ...
                               );
     if isempty(cvMatch)
@@ -238,7 +244,7 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
   end
   
   % Get list of files to compile
-  outFile           = cell(size(srcFile));
+  outFile           = cell(1, numel(srcFile));
   if isempty(srcFile)
     return;
   end

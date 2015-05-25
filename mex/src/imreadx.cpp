@@ -3,7 +3,7 @@
  
   If sub-pixel registration is requested, cv::warpAffine() is used.
   Usage syntax:
-    image = imreadx( inputPath, dx, dy, [methodInterp = 1] );
+    image = imreadx( inputPath, xShift, yShift, xScale, yScale, [methodInterp = cve.InterpolationFlags.INTER_LINEAR], [methodResize = cve.InterpolationFlags.INTER_AREA] );
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -13,8 +13,10 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <libtiff/tiffio.h>
 #include <mex.h>
 #include "lib\matUtils.h"
+#include "lib\tiffStack.h"
 #include "lib\cvToMatlab.h"
 #include "lib\manipulateImage.h"
 
@@ -28,6 +30,106 @@
 
 
 
+/**
+*/
+template<typename Pixel>
+class ImageProcessor
+{
+public:
+  ImageProcessor() 
+    : translator(2, 3, CV_32F)
+    , xTrans    (translator.ptr<float>(0))
+    , yTrans    (translator.ptr<float>(1))
+    , emptyValue( mxGetNaN() )
+  {
+    xTrans[0]                   = 1;
+    xTrans[1]                   = 0;
+    yTrans[0]                   = 0;
+    yTrans[1]                   = 1;
+  }
+
+  void operator()(const cv::Mat& image)
+  {
+    const cv::Mat*              source  = 0;
+    cv::Mat*                    target  = &frmTemp;
+
+    //---------------------------------------------------------------------------
+    //  Translation
+    //---------------------------------------------------------------------------
+
+    if (xShift) {
+      // Unfortunately we have to copy the frame before warping, because otherwise
+      // the operations are performed with the input and not output precision
+      image.convertTo(frmClone, CV_32F);
+
+      // Perform an affine transformation i.e. sub-pixel shift via interpolation
+      if (methodInterp >= 0)
+      {
+        xTrans[2]               = float( *xShift );
+        yTrans[2]               = float( *yShift );
+        cv::warpAffine( frmClone, frmTemp, translator, image.size()
+                      , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
+                      );
+      }
+
+      // Perform a simple pixel shift
+      else {
+        frmTemp.create(image.size(), CV_32F);
+        cvCall<CopyShiftedImage32>(frmTemp, frmClone, *xShift, *yShift, emptyValue[0]);
+      }
+
+      // Move on to next shift
+      ++xShift;
+      ++yShift;
+
+      // Swap source and scratch space for next operation
+      source                  = &frmTemp;
+      target                  = &frmClone;
+    }
+    else {
+      // Use original source for the next operation
+      source                  = &image;
+      target                  = &frmTemp;
+    } // translation
+
+
+    //---------------------------------------------------------------------------
+    //  Resize
+    //---------------------------------------------------------------------------
+    if (methodResize >= 0) {
+      cv::resize(*source, *target, cv::Size(), xScale, yScale, methodResize);
+
+      // Set source for the next operation
+      source                  = target;
+    } // resize
+
+   
+    //---------------------------------------------------------------------------
+    //  Copy to Matlab
+    //---------------------------------------------------------------------------
+    cvCall<MatToMatlab32>(*source, imgData);
+  }
+
+
+public:
+  cv::Mat           frmClone;
+  cv::Mat           frmTemp ;
+  Pixel*            imgData;
+  double*           xShift;
+  double*           yShift;
+  double            xScale;
+  double            yScale;
+  int               methodInterp;
+  int               methodResize;
+
+protected:
+  cv::Mat           translator;
+  float*            xTrans;
+  float*            yTrans;
+  const cv::Scalar  emptyValue;
+};
+
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Main entry point to a MEX function
@@ -37,7 +139,7 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 3 || nrhs > 4 || nlhs > 1) {
+  if (nrhs < 1 || nrhs > 7 || nlhs > 1) {
     mexEvalString("help cv.imreadx");
     mexErrMsgIdAndTxt ( "imreadx:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -45,81 +147,64 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
   // Parse input
+  ImageProcessor<float>       processor;
   char*                       inputPath       = mxArrayToString(prhs[0]);
-  const double*               xShift          = mxGetPr(prhs[1]);
-  const double*               yShift          = mxGetPr(prhs[2]);
-  const int                   methodInterp    = ( nrhs > 3 ? int( mxGetScalar(prhs[3]) ) : cv::InterpolationFlags::INTER_LINEAR );
-  const bool                  subPixelReg     = ( methodInterp >= 0 );
+  processor.xShift            = ( nrhs > 1 && !mxIsEmpty(prhs[1]) ) ? mxGetPr(prhs[1])      : 0     ;
+  processor.yShift            = ( nrhs > 2 && !mxIsEmpty(prhs[2]) ) ? mxGetPr(prhs[2])      : 0     ;
+  processor.xScale            = ( nrhs > 3 && !mxIsEmpty(prhs[3]) ) ? mxGetScalar(prhs[3])  : -999  ;
+  processor.yScale            = ( nrhs > 4 && !mxIsEmpty(prhs[4]) ) ? mxGetScalar(prhs[4])  : -999  ;
+  processor.methodInterp      = ( nrhs > 5 ? int( mxGetScalar(prhs[5]) ) : cv::InterpolationFlags::INTER_LINEAR );
+  processor.methodResize      = ( nrhs > 6 ? int( mxGetScalar(prhs[6]) ) : cv::InterpolationFlags::INTER_AREA   );
+  
+  // Sanity checks
+  if ((processor.xShift == 0) != (processor.yShift == 0))
+    mexErrMsgIdAndTxt( "imreadx:load", "If xShift is provided, yShift must be provided as well, and vice versa.");
+  if ((processor.xScale <= 0) != (processor.yScale <= 0))
+    mexErrMsgIdAndTxt( "imreadx:load", "If xScale is provided, yScale must be provided as well, and vice versa.");
+  if (processor.xScale <= 0)
+    processor.methodResize    = -1;
 
+  
+  //---------------------------------------------------------------------------
+  // Get parameters of image stack
+  TIFF*                       tif             = TIFFOpen(inputPath, "r");
+  if (!tif)                   mexErrMsgIdAndTxt( "imreadx:load", "Failed to load input image." );
+
+  uint32                      imgWidth, imgHeight;
+  if (  !TIFFGetField( tif, TIFFTAG_IMAGEWIDTH , &imgWidth  )
+    ||  !TIFFGetField( tif, TIFFTAG_IMAGELENGTH, &imgHeight )
+     )
+    mexErrMsgIdAndTxt( "imreadx:load", "Invalid image header, could not obtain width and height." );
+
+  int                         numFrames       = 0;
+  do { ++numFrames; } while (TIFFReadDirectory(tif));
+  TIFFClose(tif);
+
+  // Adjust for scaling if provided
+  if (processor.methodResize >= 0) {
+    imgWidth                  = cvRound(imgWidth  * processor.xScale);
+    imgHeight                 = cvRound(imgHeight * processor.yScale);
+  }
 
   //---------------------------------------------------------------------------
-
-  // Load image with stored bit depth
-  std::vector<cv::Mat>        imgStack;
-  if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_ANYDEPTH | cv::ImreadModes::IMREAD_ANYCOLOR))
-    mexErrMsgIdAndTxt( "imreadx:load", "Failed to load input image." );
-  if (imgStack.empty())
-    mexErrMsgIdAndTxt( "imreadx:load", "Input image has no frames." );
-  if (imgStack[0].depth() > CV_32F)
-    mexErrMsgIdAndTxt( "imreadx:bitdepth", "64-bit (double) precision data not supported yet." );
-
   // Create output structure
-  const size_t                numFrames       = imgStack.size();
-  size_t                      dimension[]     = {imgStack[0].rows, imgStack[0].cols, numFrames};
+  size_t                      dimension[]     = {imgHeight, imgWidth, numFrames};
   plhs[0]                     = mxCreateNumericArray(3, dimension, mxSINGLE_CLASS, mxREAL);
-  float*                      imgData         = (float*) mxGetData(plhs[0]);
+  processor.imgData           = (float*) mxGetData(plhs[0]);
 
   // Check that we have enough frame shifts
-  if (mxGetNumberOfElements(prhs[1]) != numFrames)
-    mexErrMsgIdAndTxt( "imreadx:load", "Number of dx shifts (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
-  if (mxGetNumberOfElements(prhs[2]) != numFrames)
-    mexErrMsgIdAndTxt( "imreadx:load", "Number of dy shifts (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
-
-  // Translation matrix, for use with sub-pixel registration
-  cv::Mat                     translator(2, 3, CV_32F);
-  float*                      xTrans          = translator.ptr<float>(0);
-  float*                      yTrans          = translator.ptr<float>(1);
-  if (subPixelReg) {
-    xTrans[0]                 = 1;
-    xTrans[1]                 = 0;
-    yTrans[0]                 = 0;
-    yTrans[1]                 = 1;
+  if (processor.xShift) {
+    if (mxGetNumberOfElements(prhs[1]) != numFrames)
+      mexErrMsgIdAndTxt( "imreadx:load", "Number of xShift (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
+    if (mxGetNumberOfElements(prhs[2]) != numFrames)
+      mexErrMsgIdAndTxt( "imreadx:load", "Number of yShift (%d) is not equal to the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[2]), numFrames);
   }
-
-  // Temporary storage for computations
-  cv::Mat                     frmClone  (imgStack[0].rows, imgStack[0].cols, CV_32F);
-  cv::Mat                     frmTemp   (imgStack[0].rows, imgStack[0].cols, CV_32F);
-  const cv::Scalar            emptyValue      ( mxGetNaN() );
 
   //---------------------------------------------------------------------------
-
-  // Perform an affine transformation i.e. sub-pixel shift via interpolation
-  if (subPixelReg)
-  {
-    for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
-      // Unfortunately we have to copy the frame before warping, because otherwise
-      // the operations are performed with the input and not output precision
-      imgStack[iFrame].convertTo(frmClone, frmClone.type());
-
-      xTrans[2]               = float( xShift[iFrame] );
-      yTrans[2]               = float( yShift[iFrame] );
-      cv::warpAffine( frmClone, frmTemp, translator, imgStack[iFrame].size()
-                    , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
-                    );
-      cvCall<MatToMatlab32>(frmTemp, imgData);
-    } // end loop over frames
-  }
-
-  // Perform a simple pixel shift
-  else {
-    for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
-      cvCall<CopyShiftedImage32>(frmTemp, imgStack[iFrame], xShift[iFrame], yShift[iFrame], emptyValue[0]);
-      cvCall<MatToMatlab32>(frmTemp, imgData);
-    }
-  }
+  // Call the stack processor
+  processStack(inputPath, cv::ImreadModes::IMREAD_UNCHANGED, processor);
 
   //---------------------------------------------------------------------------
   // Memory cleanup
   mxFree(inputPath);
 }
-

@@ -21,7 +21,7 @@
 template<typename Pixel>
 struct CopyShiftedImage32
 {
-  void operator()(cv::Mat& target, const cv::Mat& source, const int deltaRows, const int deltaCols, const float emptyValue)
+  void operator()(cv::Mat& target, const cv::Mat& source, const double deltaRows, const double deltaCols, const double emptyValue)
   {
     // Sanity check for output size and type
     CV_DbgAssert(  (target.rows       == source.rows)

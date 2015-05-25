@@ -30,6 +30,7 @@ void imshowrange(const std::string& winname, const cv::Mat& image, const double 
   cv::Mat bit depth. The return value is the range (max - min).
 */
 double cvBitRange(const int bitDepth, double& minValue, double& maxValue);
+double cvBitRange(const int bitDepth);
 
 
 /**
