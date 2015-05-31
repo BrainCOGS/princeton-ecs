@@ -3,8 +3,8 @@
 */
 
 
-#ifndef CVUTILS_H
-#define CVUTILS_H
+#ifndef MATUTILS_H
+#define MATUTILS_H
 
 #include <opencv2\core.hpp>
 
@@ -309,4 +309,4 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
 }
 
 
-#endif //CVUTILS_H
+#endif //MATUTILS_H

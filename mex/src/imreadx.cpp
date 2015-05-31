@@ -164,7 +164,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (processor.xScale <= 0)
     processor.methodResize    = -1;
 
-  
+  // Suppress warnings as they block execution until the user clicks the dialog box
+  TIFFErrorHandler            errHandler      = TIFFSetWarningHandler(NULL);
+
+
   //---------------------------------------------------------------------------
   // Get parameters of image stack
   TIFF*                       tif             = TIFFOpen(inputPath, "r");
@@ -207,4 +210,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   //---------------------------------------------------------------------------
   // Memory cleanup
   mxFree(inputPath);
+
+  // Restore default error handler
+  TIFFSetWarningHandler(errHandler);
 }

@@ -2,16 +2,12 @@
   Computes a motion corrected version of the given movie using cv::matchTemplate().
 
   Usage syntax:
-    [xShifts, yShifts, numIterations]
-        = cv.motionCorrect( inputPath, maxShift, maxIter                            ...
+    mc  = cv.motionCorrect( inputPath, maxShift, maxIter                            ...
                           , [displayProgress = false], [stopBelowShift = 0]         ...
                           , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]    ...
                           , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]  ...
                           , [emptyValue = mean]                                     ...
                           );
-
-  The output is stored in the given outputPath, **overwriting** if the file already exists.
-  The history of x and y shifts can be returned to Matlab,
 
   The memory usage of this function is numRows * numCols * (numZ + 1), i.e. one
   frame more than the input image stack. The median image is used as the template
@@ -24,13 +20,13 @@
 
 
 #include <cmath>
-#include <iostream>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mex.h>
 #include "lib/matUtils.h"
 #include "lib/medianImage.h"
 #include "lib/manipulateImage.h"
+#include "lib/cvToMatlab.h"
 
 
 #define _DO_NOT_EXPORT
@@ -50,7 +46,7 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 3 || nrhs > 8 || nlhs > 3) {
+  if (nrhs < 3 || nrhs > 8 || nlhs != 1) {
     mexEvalString("help cv.motionCorrect");
     mexErrMsgIdAndTxt ( "motionCorrect:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -81,26 +77,29 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (imgStack[0].cols * imgStack[0].rows < 3)
     mexErrMsgIdAndTxt( "motionCorrect:load", "Input image too small, must have at least 3 pixels." );
 
-  // Create output structures
+  // The template size restricts the maximum allowable shift
   const size_t                numFrames       = imgStack.size();
-  double*                     xShifts         = 0;
-  double*                     yShifts         = 0;
-  if (nlhs > 0)             { plhs[0]         = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);   xShifts = mxGetPr(plhs[0]); }
-  else                      { xShifts         = new double[numFrames];              std::fill(xShifts, xShifts+numFrames, 0.);  }
-  if (nlhs > 1)             { plhs[1]         = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);   yShifts = mxGetPr(plhs[1]); }
-  else                      { yShifts         = new double[numFrames];              std::fill(xShifts, xShifts+numFrames, 0.);  }
+  const int                   firstRefRow     = std::min(maxShift, (imgStack[0].rows - 1)/2);
+  const int                   firstRefCol     = std::min(maxShift, (imgStack[0].cols - 1)/2);
+  const size_t                metricSize[]    = {2*firstRefRow + 1, 2*firstRefCol + 1, numFrames};
+
+  // Create output structure
+  mxArray*                    outXShifts      = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);
+  mxArray*                    outYShifts      = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);
+  mxArray*                    outStackMetric  = mxCreateNumericArray(3, metricSize, mxSINGLE_CLASS, mxREAL);
+  double*                     xShifts         = mxGetPr(outXShifts);
+  double*                     yShifts         = mxGetPr(outYShifts);
+  float*                      stackMetric     = (float*) mxGetData(outStackMetric);
+
+  MatToMatlab32<float>        dataCopier;
 
   
   //---------------------------------------------------------------------------
 
-  // The template size restricts the maximum allowable shift
-  const int                   firstRefRow     = std::min(maxShift, (imgStack[0].rows - 1)/2);
-  const int                   firstRefCol     = std::min(maxShift, (imgStack[0].cols - 1)/2);
-
   // Preallocate temporary storage for computations
   cv::Mat                     frmTemp   (imgStack[0].rows                , imgStack[0].cols                , CV_32F);
   cv::Mat                     imgRef    (imgStack[0].rows - 2*firstRefRow, imgStack[0].cols - 2*firstRefCol, CV_32F);
-  cv::Mat                     metric    (2*firstRefRow + 1               , 2*firstRefCol + 1               , CV_32F);
+  cv::Mat                     metric    (metricSize[0]                   , metricSize[1]                   , CV_32F);
   std::vector<float>          traceTemp(numFrames);
   std::vector<cv::Mat>        imgShifted(numFrames);
 
@@ -180,8 +179,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   
   //---------------------------------------------------------------------------
 
-  int                         iteration       = 0;
-  for (int iShift = 0; iteration < maxIter; ++iteration)
+  int                         iteration       = 1;
+  for (int iShift = 0; iteration <= maxIter; ++iteration)
   {
     // Relative index at which the previous shifts were stored
     const int                 iPrevX          = ( nlhs < 1 || iteration < 1 ? 0 : numFrames );
@@ -191,8 +190,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
     if (displayProgress)      imshowrange("Template", imgRef, showMin, showMax);
 
+
     // Loop through frames and correct each one
     double                    maxRelShift     = -1e308;
+    float*                    ptrMetric       = stackMetric;
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame, ++iShift) {
       imgStack[iFrame].convertTo(frmTemp, CV_32F, pixScale, pixShift);
       //if (displayProgress)    imshowrange("Image", frmTemp, showMin, showMax);
@@ -203,6 +204,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       if (methodCorr == cv::TemplateMatchModes::TM_SQDIFF || methodCorr == cv::TemplateMatchModes::TM_SQDIFF_NORMED)
             cv::minMaxLoc(metric, NULL, NULL, &optimum, NULL    );
       else  cv::minMaxLoc(metric, NULL, NULL, NULL    , &optimum);
+      dataCopier(metric, ptrMetric);
 
 
       // If interpolation is desired, use a gaussian peak fit to resolve it
@@ -242,6 +244,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
       // In case of no sub-pixel interpolation, perform a simple (and fast) pixel shift
       else {
+        //for (int iRow = 0; iRow < metric.rows; ++iRow) {
+        //  const float*        metricRow       = metric.ptr<float>(iRow);
+        //  for (int iCol = 0; iCol < metric.cols; ++iCol)
+        //    mexPrintf("  %10.3g", metricRow[iCol]);
+        //  mexPrintf("\n");
+        //}
+
         // Remember that the template is offset so shifts are relative to that
         colShift              = -( optimum.x - firstRefCol );
         rowShift              = -( optimum.y - firstRefRow );
@@ -254,6 +263,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       xShifts[iShift]         = colShift;
       yShifts[iShift]         = rowShift;
        
+
       if (displayProgress)    imshowrange("Corrected", imgShifted[iFrame], showMin, showMax);
     } // end loop over frames
 
@@ -266,14 +276,49 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Output
-  if (nlhs > 2)               plhs[2]           = mxCreateDoubleScalar(iteration);
+
+  // Truncate shift arrays in case iterations are stopped before the max
+  if (iteration < maxIter) {
+    mxSetN(outXShifts, iteration);
+    mxSetN(outYShifts, iteration);
+  }
+
+  // Parameters
+  static const char*          PARAM_FIELDS[]  = { "maxShift"
+                                                //, "crop"
+                                                , "subpixel"
+                                                //, "blockSize"
+                                                //, "whichFrames"
+                                                };
+  mxArray*                    outParams       = mxCreateStructMatrix(1, 1, 2, PARAM_FIELDS);
+  mxSetField(outParams, 0, "maxShift"   , mxCreateDoubleScalar(maxShift));
+  mxSetField(outParams, 0, "subpixel"   , mxCreateLogicalScalar(subPixelReg));
+
+  // Metric
+  static const char*          METRIC_FIELDS[] = { "name"
+                                                , "values"
+                                                };
+  mxArray*                    outMetric       = mxCreateStructMatrix(1, 1, 2, METRIC_FIELDS);
+  mxSetField(outMetric, 0, "name"       , mxCreateString(""));
+  mxSetField(outMetric, 0, "values"     , outStackMetric);
+
+  // Motion correction data structure
+  static const char*          OUT_FIELDS[]    = { "xShifts"
+                                                , "yShifts"
+                                                , "method"
+                                                , "params"
+                                                , "metric"
+                                                };
+  plhs[0]                     = mxCreateStructMatrix(1, 1, 5, OUT_FIELDS);
+  mxSetField(plhs[0], 0, "xShifts", outXShifts);
+  mxSetField(plhs[0], 0, "yShifts", outYShifts);
+  mxSetField(plhs[0], 0, "method" , mxCreateString("cv.motionCorrect"));
+  mxSetField(plhs[0], 0, "params" , outParams);
+  mxSetField(plhs[0], 0, "metric" , outMetric);
 
 
   //---------------------------------------------------------------------------
   // Memory cleanup
   mxFree(inputPath);
-
-  if (nlhs < 1)               delete[] xShifts;
-  if (nlhs < 2)               delete[] yShifts;
 }
 
