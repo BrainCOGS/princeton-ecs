@@ -15,13 +15,13 @@
 template<typename Pixel>
 struct MatToMatlab32
 {
-  void operator()(const cv::Mat& image, float*& dataPtr)
+  void operator()(const cv::Mat& image, float*& dataPtr, float offset)
   {
     // Loop over each pixel in the image 
     for (int iRow = 0; iRow < image.rows; ++iRow) {
       const Pixel*    pixRow      = image.ptr<Pixel>(iRow);
       for (int iCol = 0; iCol < image.cols; ++iCol) {
-        dataPtr[iCol*image.rows]  = static_cast<float>( pixRow[iCol] );
+        dataPtr[iCol*image.rows]  = static_cast<float>( pixRow[iCol] ) - offset;
       } // end loop over columns
       
       // Write next row

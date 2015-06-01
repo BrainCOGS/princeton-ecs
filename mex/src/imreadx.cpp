@@ -4,7 +4,7 @@
   If sub-pixel registration is requested, cv::warpAffine() is used.
   Usage syntax:
     [image, stats, median] = imreadx( inputPath, xShift, yShift, xScale, yScale             ...
-                                    , [setEmptyFramesToNaN = false]                         ...
+                                    , [setEmptyFramesToNaN = false], [subtractZero = false] ...
                                     , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]  ...
                                     , [methodResize = cve.InterpolationFlags.INTER_AREA]    ...
                                     );
@@ -45,6 +45,7 @@ public:
     : nFramePixels  (0)
     , emptyNSigmas  (5)
     , emptyProb     (1 - 3e-7)
+    , offset        (0)
     , maxZeroValue  (std::numeric_limits<double>::infinity())
     , numFrames     (0)
     , translator    (2, 3, CV_32F)
@@ -77,7 +78,8 @@ public:
         // Account for multiple samples when computing the fraction of pixels that are
         // expected to fall below the zero + noise threshold
         emptyProb               = std::pow(emptyProb, nFramePixels);
-        maxZeroValue            = statistics.getMean() + emptyNSigmas * statistics.getRMS();
+        offset                  = statistics.getMean();
+        maxZeroValue            = offset + emptyNSigmas * statistics.getRMS();
         isEmpty                 = true;   // by definition
       }
       else {
@@ -158,7 +160,7 @@ public:
     //---------------------------------------------------------------------------
     //  Copy to Matlab
     //---------------------------------------------------------------------------
-    cvCall<MatToMatlab32>(*source, imgData);
+    cvCall<MatToMatlab32>(*source, imgData, offset);
   }
 
 
@@ -171,6 +173,7 @@ public:
   double            xScale;
   double            yScale;
   bool              doNaNEmpty;
+  bool              subtractZero;
   int               methodInterp;
   int               methodResize;
 
@@ -179,6 +182,7 @@ public:
   double            emptyProb;
   
   SampleStatistics  statistics;
+  double            offset;
   double            maxZeroValue;
 
 protected:
@@ -199,7 +203,7 @@ protected:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 1 || nrhs > 8 || nlhs > 3) {
+  if (nrhs < 1 || nrhs > 9 || nlhs > 3) {
     mexEvalString("help cv.imreadx");
     mexErrMsgIdAndTxt ( "imreadx:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -214,8 +218,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   processor.xScale            = ( nrhs > 3 && !mxIsEmpty(prhs[3]) ) ? mxGetScalar(prhs[3])      : -999  ;
   processor.yScale            = ( nrhs > 4 && !mxIsEmpty(prhs[4]) ) ? mxGetScalar(prhs[4])      : -999  ;
   processor.doNaNEmpty        = ( nrhs > 5 ?                         (mxGetScalar(prhs[5]) > 0) : false );
-  processor.methodInterp      = ( nrhs > 6 ? int( mxGetScalar(prhs[5]) ) : cv::InterpolationFlags::INTER_LINEAR );
-  processor.methodResize      = ( nrhs > 7 ? int( mxGetScalar(prhs[6]) ) : cv::InterpolationFlags::INTER_AREA   );
+  processor.subtractZero      = ( nrhs > 6 ?                         (mxGetScalar(prhs[6]) > 0) : false );
+  processor.methodInterp      = ( nrhs > 7 ? int( mxGetScalar(prhs[7]) ) : cv::InterpolationFlags::INTER_LINEAR );
+  processor.methodResize      = ( nrhs > 8 ? int( mxGetScalar(prhs[8]) ) : cv::InterpolationFlags::INTER_AREA   );
   
   // Sanity checks
   if ((processor.xShift == 0) != (processor.yShift == 0))
