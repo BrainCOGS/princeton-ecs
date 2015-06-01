@@ -3,11 +3,11 @@
  
   If sub-pixel registration is requested, cv::warpAffine() is used.
   Usage syntax:
-    [image, median] = imreadx ( inputPath, xShift, yShift, xScale, yScale             ...
-                              , [setEmptyFramesToNaN = false]                         ...
-                              , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]  ...
-                              , [methodResize = cve.InterpolationFlags.INTER_AREA]    ...
-                              );
+    [image, stats, median] = imreadx( inputPath, xShift, yShift, xScale, yScale             ...
+                                    , [setEmptyFramesToNaN = false]                         ...
+                                    , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]  ...
+                                    , [methodResize = cve.InterpolationFlags.INTER_AREA]    ...
+                                    );
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -72,7 +72,6 @@ public:
       // Use the first frame to estimate the black level and variance
       bool                      isEmpty = false;
       if (numFrames == 1) {
-        SampleStatistics        statistics;
         cvCall<AccumulateMatStatistics>(image, statistics);
 
         // Account for multiple samples when computing the fraction of pixels that are
@@ -178,9 +177,11 @@ public:
   int               nFramePixels;
   double            emptyNSigmas;
   double            emptyProb;
+  
+  SampleStatistics  statistics;
+  double            maxZeroValue;
 
 protected:
-  double            maxZeroValue;
   int               numFrames;
   cv::Mat           translator;
   float*            xTrans;
@@ -198,7 +199,7 @@ protected:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 1 || nrhs > 8 || nlhs > 2) {
+  if (nrhs < 1 || nrhs > 8 || nlhs > 3) {
     mexEvalString("help cv.imreadx");
     mexErrMsgIdAndTxt ( "imreadx:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -268,11 +269,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Call the stack processor
   processStack(inputPath, cv::ImreadModes::IMREAD_UNCHANGED, processor);
 
-  // Compute median if so requested
+  // Return statistics structure if so requested
   if (nlhs > 1) {
+    static const char*        STAT_FIELDS[]   = { "zeroLevel"
+                                                , "zeroNoise"
+                                                , "zeroThreshold"
+                                                };
+    plhs[1]                   = mxCreateStructMatrix(1, 1, 3, STAT_FIELDS);
+    mxSetField(plhs[1], 0, "zeroLevel"    , mxCreateDoubleScalar(processor.statistics.getMean()));
+    mxSetField(plhs[1], 0, "zeroNoise"    , mxCreateDoubleScalar(processor.statistics.getRMS()));
+    mxSetField(plhs[1], 0, "zeroThreshold", mxCreateDoubleScalar(processor.maxZeroValue));
+  }
+
+  // Compute median if so requested
+  if (nlhs > 2) {
     std::vector<float>        traceTemp(numFrames);
-    plhs[1]                   = mxCreateNumericArray(2, dimension, mxSINGLE_CLASS, mxREAL);
-    float*                    medData         = (float*) mxGetData(plhs[1]);
+    plhs[2]                   = mxCreateNumericArray(2, dimension, mxSINGLE_CLASS, mxREAL);
+    float*                    medData         = (float*) mxGetData(plhs[2]);
 
     // Loop over each pixel in the image stack
     const float*              pixCol          = processor.imgData;
