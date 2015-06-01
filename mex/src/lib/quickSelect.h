@@ -16,11 +16,14 @@
 #include <vector>
 
 template<typename Element>
-Element quickSelect(std::vector<Element>& arr) 
+Element quickSelect(std::vector<Element>& arr, size_t numItems = 0) 
 {
-  int             low       = 0;
-  int             high      = arr.size() - 1;
-  int             median    = (low + high) / 2;
+  if (numItems < 1)         numItems  = arr.size();
+  if (numItems < 1)         return 0;
+
+  size_t          low       = 0;
+  size_t          high      = numItems - 1;
+  size_t          median    = (low + high) / 2;
 
   while (true)
   {
@@ -35,7 +38,7 @@ Element quickSelect(std::vector<Element>& arr)
     }
 
     /* Find median of low, middle and high items; swap into position low */
-    const int     middle    = (low + high) / 2;
+    const size_t  middle    = (low + high) / 2;
     if (arr[middle] > arr[high])    std::swap(arr[middle], arr[high]) ;
     if (arr[low]    > arr[high])    std::swap(arr[low]   , arr[high]) ;
     if (arr[middle] > arr[low])     std::swap(arr[middle], arr[low] ) ;
@@ -44,8 +47,8 @@ Element quickSelect(std::vector<Element>& arr)
     std::swap(arr[middle], arr[low+1]) ;
 
     /* Nibble from each end towards middle, swapping items when stuck */
-    int           ll        = low + 1;
-    int           hh        = high;
+    size_t        ll        = low + 1;
+    size_t        hh        = high;
     while (true)
     {
       do ++ll;    while (arr[low] > arr[ll] );

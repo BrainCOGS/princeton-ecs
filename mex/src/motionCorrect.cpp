@@ -24,7 +24,7 @@
 #include <opencv2/imgproc.hpp>
 #include <mex.h>
 #include "lib/matUtils.h"
-#include "lib/medianImage.h"
+#include "lib/imageStatistics.h"
 #include "lib/manipulateImage.h"
 #include "lib/cvToMatlab.h"
 
@@ -194,7 +194,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // Loop through frames and correct each one
     double                    maxRelShift     = -1e308;
     float*                    ptrMetric       = stackMetric;
-    for (size_t iFrame = 0; iFrame < numFrames; ++iFrame, ++iShift) {
+    for (size_t iFrame = 0; iFrame < numFrames; ++iFrame, ++iShift) 
+    {
       imgStack[iFrame].convertTo(frmTemp, CV_32F, pixScale, pixShift);
       //if (displayProgress)    imshowrange("Image", frmTemp, showMin, showMax);
 
@@ -282,6 +283,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxSetN(outXShifts, iteration);
     mxSetN(outYShifts, iteration);
   }
+
 
   // Parameters
   static const char*          PARAM_FIELDS[]  = { "maxShift"

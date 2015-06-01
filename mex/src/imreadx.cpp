@@ -3,7 +3,11 @@
  
   If sub-pixel registration is requested, cv::warpAffine() is used.
   Usage syntax:
-    image = imreadx( inputPath, xShift, yShift, xScale, yScale, [methodInterp = cve.InterpolationFlags.INTER_LINEAR], [methodResize = cve.InterpolationFlags.INTER_AREA] );
+    [image, median] = imreadx ( inputPath, xShift, yShift, xScale, yScale             ...
+                              , [setEmptyFramesToNaN = false]                         ...
+                              , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]  ...
+                              , [methodResize = cve.InterpolationFlags.INTER_AREA]    ...
+                              );
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -15,10 +19,11 @@
 #include <opencv2/imgproc.hpp>
 #include <libtiff/tiffio.h>
 #include <mex.h>
-#include "lib\matUtils.h"
-#include "lib\tiffStack.h"
-#include "lib\cvToMatlab.h"
-#include "lib\manipulateImage.h"
+#include "lib/matUtils.h"
+#include "lib/tiffStack.h"
+#include "lib/cvToMatlab.h"
+#include "lib/manipulateImage.h"
+#include "lib/imageStatistics.h"
 
 
 #define _DO_NOT_EXPORT
@@ -37,10 +42,15 @@ class ImageProcessor
 {
 public:
   ImageProcessor() 
-    : translator(2, 3, CV_32F)
-    , xTrans    (translator.ptr<float>(0))
-    , yTrans    (translator.ptr<float>(1))
-    , emptyValue( mxGetNaN() )
+    : nFramePixels  (0)
+    , emptyNSigmas  (5)
+    , emptyProb     (1 - 3e-7)
+    , maxZeroValue  (std::numeric_limits<double>::infinity())
+    , numFrames     (0)
+    , translator    (2, 3, CV_32F)
+    , xTrans        (translator.ptr<float>(0))
+    , yTrans        (translator.ptr<float>(1))
+    , emptyValue    ( mxGetNaN() )
   {
     xTrans[0]                   = 1;
     xTrans[1]                   = 0;
@@ -52,6 +62,48 @@ public:
   {
     const cv::Mat*              source  = 0;
     cv::Mat*                    target  = &frmTemp;
+    ++numFrames;
+
+    //---------------------------------------------------------------------------
+    //  Black frame detection
+    //---------------------------------------------------------------------------
+
+    if (doNaNEmpty) {
+      // Use the first frame to estimate the black level and variance
+      bool                      isEmpty = false;
+      if (numFrames == 1) {
+        SampleStatistics        statistics;
+        cvCall<AccumulateMatStatistics>(image, statistics);
+
+        // Account for multiple samples when computing the fraction of pixels that are
+        // expected to fall below the zero + noise threshold
+        emptyProb               = std::pow(emptyProb, nFramePixels);
+        maxZeroValue            = statistics.getMean() + emptyNSigmas * statistics.getRMS();
+        isEmpty                 = true;   // by definition
+      }
+      else {
+        static const double     negInf  = -std::numeric_limits<double>::infinity();
+        int                     numZeros;
+        cvCall<CountPixelsInRange>(image, negInf, maxZeroValue, numZeros);
+        if (numZeros >= emptyProb * image.rows * image.cols)
+          isEmpty               = true;
+      }
+
+      // Special case where the entire frame should be set to NaN
+      if (isEmpty) {
+        static const float      nan     = mxGetNaN();
+        for (int iPix = 0; iPix < nFramePixels; ++iPix, ++imgData)
+          *imgData              = nan;
+
+        // Move on to next shift if they have been provided
+        if (xShift) {
+          ++xShift;
+          ++yShift;
+        }
+        return;                 // Skip all further processing
+      }
+    }
+
 
     //---------------------------------------------------------------------------
     //  Translation
@@ -119,10 +171,17 @@ public:
   double*           yShift;
   double            xScale;
   double            yScale;
+  bool              doNaNEmpty;
   int               methodInterp;
   int               methodResize;
 
+  int               nFramePixels;
+  double            emptyNSigmas;
+  double            emptyProb;
+
 protected:
+  double            maxZeroValue;
+  int               numFrames;
   cv::Mat           translator;
   float*            xTrans;
   float*            yTrans;
@@ -139,7 +198,7 @@ protected:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 1 || nrhs > 7 || nlhs > 1) {
+  if (nrhs < 1 || nrhs > 8 || nlhs > 2) {
     mexEvalString("help cv.imreadx");
     mexErrMsgIdAndTxt ( "imreadx:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -149,12 +208,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Parse input
   ImageProcessor<float>       processor;
   char*                       inputPath       = mxArrayToString(prhs[0]);
-  processor.xShift            = ( nrhs > 1 && !mxIsEmpty(prhs[1]) ) ? mxGetPr(prhs[1])      : 0     ;
-  processor.yShift            = ( nrhs > 2 && !mxIsEmpty(prhs[2]) ) ? mxGetPr(prhs[2])      : 0     ;
-  processor.xScale            = ( nrhs > 3 && !mxIsEmpty(prhs[3]) ) ? mxGetScalar(prhs[3])  : -999  ;
-  processor.yScale            = ( nrhs > 4 && !mxIsEmpty(prhs[4]) ) ? mxGetScalar(prhs[4])  : -999  ;
-  processor.methodInterp      = ( nrhs > 5 ? int( mxGetScalar(prhs[5]) ) : cv::InterpolationFlags::INTER_LINEAR );
-  processor.methodResize      = ( nrhs > 6 ? int( mxGetScalar(prhs[6]) ) : cv::InterpolationFlags::INTER_AREA   );
+  processor.xShift            = ( nrhs > 1 && !mxIsEmpty(prhs[1]) ) ? mxGetPr(prhs[1])          : 0     ;
+  processor.yShift            = ( nrhs > 2 && !mxIsEmpty(prhs[2]) ) ? mxGetPr(prhs[2])          : 0     ;
+  processor.xScale            = ( nrhs > 3 && !mxIsEmpty(prhs[3]) ) ? mxGetScalar(prhs[3])      : -999  ;
+  processor.yScale            = ( nrhs > 4 && !mxIsEmpty(prhs[4]) ) ? mxGetScalar(prhs[4])      : -999  ;
+  processor.doNaNEmpty        = ( nrhs > 5 ?                         (mxGetScalar(prhs[5]) > 0) : false );
+  processor.methodInterp      = ( nrhs > 6 ? int( mxGetScalar(prhs[5]) ) : cv::InterpolationFlags::INTER_LINEAR );
+  processor.methodResize      = ( nrhs > 7 ? int( mxGetScalar(prhs[6]) ) : cv::InterpolationFlags::INTER_AREA   );
   
   // Sanity checks
   if ((processor.xShift == 0) != (processor.yShift == 0))
@@ -193,6 +253,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Create output structure
   size_t                      dimension[]     = {imgHeight, imgWidth, numFrames};
   plhs[0]                     = mxCreateNumericArray(3, dimension, mxSINGLE_CLASS, mxREAL);
+  processor.nFramePixels      = imgHeight * imgWidth;
   processor.imgData           = (float*) mxGetData(plhs[0]);
 
   // Check that we have enough frame shifts
@@ -206,6 +267,34 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   //---------------------------------------------------------------------------
   // Call the stack processor
   processStack(inputPath, cv::ImreadModes::IMREAD_UNCHANGED, processor);
+
+  // Compute median if so requested
+  if (nlhs > 1) {
+    std::vector<float>        traceTemp(numFrames);
+    plhs[1]                   = mxCreateNumericArray(2, dimension, mxSINGLE_CLASS, mxREAL);
+    float*                    medData         = (float*) mxGetData(plhs[1]);
+
+    // Loop over each pixel in the image stack
+    const float*              pixCol          = processor.imgData;
+    for (size_t iCol = 0; iCol < imgWidth; ++iCol) {
+      for (size_t iRow = 0; iRow < imgHeight; ++iRow) {
+        // Copy the stack of pixels into temporary storage
+        int                   nTrace          = 0;
+        for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
+          const float         pixValue        = pixCol[iFrame * processor.nFramePixels];
+          if (!mxIsNaN(pixValue)) {
+            traceTemp[nTrace] = pixValue;
+            ++nTrace;
+          }
+        }
+        ++pixCol;
+
+        // Store the computed median
+        *medData              = quickSelect(traceTemp, nTrace);
+        ++medData;
+      } // end loop over columns
+    } // end loop over rows
+  }
 
   //---------------------------------------------------------------------------
   // Memory cleanup
