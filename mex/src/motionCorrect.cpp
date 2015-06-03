@@ -296,7 +296,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   }
 
   // Compute median image one final time to store the reference image
-  cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
+  //cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
   mxArray*                    outRef          = mxCreateNumericMatrix(imgRef.rows, imgRef.cols, mxSINGLE_CLASS, mxREAL);
   float*                      ptrRef          = (float*) mxGetData(outRef);
   cvCall<MatToMatlab32>(imgRef, ptrRef);
