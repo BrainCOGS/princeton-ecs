@@ -207,12 +207,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mexEvalString("help cv.imreadx");
     mexErrMsgIdAndTxt ( "imreadx:usage", "Incorrect number of inputs/outputs provided." );
   }
-  if (!mxIsChar(prhs[0]))     mexErrMsgIdAndTxt("imreadx:arguments", "inputPath must be a string.");
+
+  // Handle single vs. multiple input files
+  const mxArray*              input           = prhs[0];
+  std::vector<char*>          inputPath;
+  if (mxIsCell(input)) {
+    inputPath.resize(mxGetNumberOfElements(input));
+    for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
+      inputPath[iIn]          = mxArrayToString(mxGetCell(input, iIn));
+      if (!inputPath[iIn])    mexErrMsgIdAndTxt("imreadx:arguments", "Non-string item encountered in inputPath array.");
+    }
+  }
+  else if (!mxIsChar(prhs[0]))
+    mexErrMsgIdAndTxt("imreadx:arguments", "inputPath must be a string or array of strings.");
+  else
+    inputPath.push_back( mxArrayToString(input) );
 
 
   // Parse input
   ImageProcessor<float>       processor;
-  char*                       inputPath       = mxArrayToString(prhs[0]);
   processor.xShift            = ( nrhs > 1 && !mxIsEmpty(prhs[1]) ) ? mxGetPr(prhs[1])          : 0     ;
   processor.yShift            = ( nrhs > 2 && !mxIsEmpty(prhs[2]) ) ? mxGetPr(prhs[2])          : 0     ;
   processor.xScale            = ( nrhs > 3 && !mxIsEmpty(prhs[3]) ) ? mxGetScalar(prhs[3])      : -999  ;
@@ -236,18 +249,30 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Get parameters of image stack
-  TIFF*                       tif             = TIFFOpen(inputPath, "r");
-  if (!tif)                   mexErrMsgIdAndTxt( "imreadx:load", "Failed to load input image." );
-
-  uint32                      imgWidth, imgHeight;
-  if (  !TIFFGetField( tif, TIFFTAG_IMAGEWIDTH , &imgWidth  )
-    ||  !TIFFGetField( tif, TIFFTAG_IMAGELENGTH, &imgHeight )
-     )
-    mexErrMsgIdAndTxt( "imreadx:load", "Invalid image header, could not obtain width and height." );
-
+  uint32                      imgWidth        = 0;
+  uint32                      imgHeight       = 0;
   int                         numFrames       = 0;
-  do { ++numFrames; } while (TIFFReadDirectory(tif));
-  TIFFClose(tif);
+  for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
+  {
+    TIFF*                     tif             = TIFFOpen(inputPath[iIn], "r");
+    if (!tif)                 mexErrMsgIdAndTxt( "imreadx:load", "Failed to load input image from %s.", inputPath[iIn] );
+
+    uint32                    width, height;
+    if (  !TIFFGetField( tif, TIFFTAG_IMAGEWIDTH , &width  )
+      ||  !TIFFGetField( tif, TIFFTAG_IMAGELENGTH, &height )
+       )
+      mexErrMsgIdAndTxt( "imreadx:load", "Invalid image header, could not obtain width and height from %s.", inputPath[iIn] );
+
+    if (iIn < 1) {
+      imgWidth                = width;
+      imgHeight               = height;
+    }
+    else if (width != imgWidth || height != imgHeight)
+      mexErrMsgIdAndTxt( "imreadx:load", "Inconsistent image width (%d vs. %d) or height (%d vs. %d) in %s.", inputPath[iIn], width, imgWidth, height, imgHeight );
+
+    do { ++numFrames; } while (TIFFReadDirectory(tif));
+    TIFFClose(tif);
+  }
 
   // Adjust for scaling if provided
   if (processor.methodResize >= 0) {
@@ -272,7 +297,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Call the stack processor
-  processStack(inputPath, cv::ImreadModes::IMREAD_UNCHANGED, processor);
+  for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
+    processStack(inputPath[iIn], cv::ImreadModes::IMREAD_UNCHANGED, processor);
 
   // Return statistics structure if so requested
   if (nlhs > 1) {
@@ -289,7 +315,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Compute median if so requested
   if (nlhs > 2) {
     std::vector<float>        traceTemp(numFrames);
-    plhs[2]                   = mxCreateNumericArray(2, dimension, mxSINGLE_CLASS, mxREAL);
+    plhs[2]                   = mxCreateNumericMatrix(imgHeight, imgWidth, mxSINGLE_CLASS, mxREAL);
     float*                    medData         = (float*) mxGetData(plhs[2]);
 
     // Loop over each pixel in the image stack
@@ -316,7 +342,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Memory cleanup
-  mxFree(inputPath);
+  for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
+    mxFree(inputPath[iIn]);
 
   // Restore default error handler
   TIFFSetWarningHandler(errHandler);
