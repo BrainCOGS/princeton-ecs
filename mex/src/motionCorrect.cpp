@@ -146,13 +146,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // severe truncation of sub-pixel shifts.
 
   double                      pixScale, pixShift;
-  if (isIntegral) {
-    pixScale                  = cvBitRange(scratchType) / (maxValue - minValue);
-    pixShift                  = -pixScale* minValue;
-  } else {
+  //if (isIntegral) {
+  //  pixScale                  = cvBitRange(scratchType) / (maxValue - minValue);
+  //  pixShift                  = -pixScale* minValue;
+  //} else {
     pixScale                  = 1;
     pixShift                  = 0;
-  }
+  //}
   for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
     imgStack[iFrame].convertTo(imgShifted[iFrame], scratchType, pixScale, pixShift);
 
@@ -329,7 +329,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                                                 , "metric"
                                                 , "reference"
                                                 };
-  plhs[0]                     = mxCreateStructMatrix(1, 1, 5, OUT_FIELDS);
+  plhs[0]                     = mxCreateStructMatrix(1, 1, 6, OUT_FIELDS);
   mxSetField(plhs[0], 0, "xShifts"  , outXShifts);
   mxSetField(plhs[0], 0, "yShifts"  , outYShifts);
   mxSetField(plhs[0], 0, "method"   , mxCreateString("cv.motionCorrect"));
