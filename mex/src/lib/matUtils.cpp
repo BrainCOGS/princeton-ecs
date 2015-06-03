@@ -102,14 +102,16 @@ double cvBitRange(const int bitDepth)
 int cvBitDepth(const std::vector<cv::Mat>& image)
 {
   if (image.empty())
-    mexErrMsgIdAndTxt("cvBitDepth:empty", "There are no images in the given stack.");
+    return CV_8U;
+    //mexErrMsgIdAndTxt("cvBitDepth:empty", "There are no images in the given stack.");
   return cvBitDepth(image[0]);
 }
 
 int cvBitDepth(const cv::Mat& image)
 {
   if (image.empty())
-    mexErrMsgIdAndTxt("cvBitDepth:empty", "Empty image structure encountered.");
+    return CV_8U;
+    //mexErrMsgIdAndTxt("cvBitDepth:empty", "Empty image structure encountered.");
   return image.depth();
 }
 
@@ -120,14 +122,16 @@ int cvBitDepth(const cv::Mat& image)
 int cvType(const std::vector<cv::Mat>& image)
 {
   if (image.empty())
-    mexErrMsgIdAndTxt("cvType:empty", "There are no images in the given stack.");
+    return CV_8U;
+    //mexErrMsgIdAndTxt("cvType:empty", "There are no images in the given stack.");
   return cvType(image[0]);
 }
 
 int cvType(const cv::Mat& image)
 {
   if (image.empty())
-    mexErrMsgIdAndTxt("cvType:empty", "Empty image structure encountered.");
+    return CV_8U;
+    //mexErrMsgIdAndTxt("cvType:empty", "Empty image structure encountered.");
   return image.type();
 }
 
@@ -138,13 +142,15 @@ int cvType(const cv::Mat& image)
 int cvNumChannels(const std::vector<cv::Mat>& image)
 {
   if (image.empty())
-    mexErrMsgIdAndTxt("cvNumChannels:empty", "There are no images in the given stack.");
+    return 1;
+    //mexErrMsgIdAndTxt("cvNumChannels:empty", "There are no images in the given stack.");
   return cvNumChannels(image[0]);
 }
 
 int cvNumChannels(const cv::Mat& image)
 {
   if (image.empty())
-    mexErrMsgIdAndTxt("cvNumChannels:empty", "Empty image structure encountered.");
+    return 1;
+    //mexErrMsgIdAndTxt("cvNumChannels:empty", "Empty image structure encountered.");
   return image.channels();
 }

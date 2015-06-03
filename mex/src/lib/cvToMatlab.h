@@ -5,9 +5,10 @@
 */
 
 
-#ifndef imageIMAGE_H
-#define imageIMAGE_H
+#ifndef CVTOMATLAB_H
+#define CVTOMATLAB_H
 
+#include <mex.h>
 #include <opencv2\core.hpp>
 #include "quickSelect.h"
 
@@ -15,7 +16,7 @@
 template<typename Pixel>
 struct MatToMatlab32
 {
-  void operator()(const cv::Mat& image, float*& dataPtr, float offset)
+  void operator()(const cv::Mat& image, float*& dataPtr, float offset = 0)
   {
     // Loop over each pixel in the image 
     for (int iRow = 0; iRow < image.rows; ++iRow) {
@@ -34,20 +35,57 @@ struct MatToMatlab32
 };
 
 
-/**
-  Nice names for commonly used enums.
-*/
-//enum TemplateMatchModes {
-//    TM_SQDIFF        = 0, //!< \f[R(x,y)= \sum _{x',y'} (T(x',y')-I(x+x',y+y'))^2\f]
-//    TM_SQDIFF_NORMED = 1, //!< \f[R(x,y)= \frac{\sum_{x',y'} (T(x',y')-I(x+x',y+y'))^2}{\sqrt{\sum_{x',y'}T(x',y')^2 \cdot \sum_{x',y'} I(x+x',y+y')^2}}\f]
-//    TM_CCORR         = 2, //!< \f[R(x,y)= \sum _{x',y'} (T(x',y')  \cdot I(x+x',y+y'))\f]
-//    TM_CCORR_NORMED  = 3, //!< \f[R(x,y)= \frac{\sum_{x',y'} (T(x',y') \cdot I(x+x',y+y'))}{\sqrt{\sum_{x',y'}T(x',y')^2 \cdot \sum_{x',y'} I(x+x',y+y')^2}}\f]
-//    TM_CCOEFF        = 4, //!< \f[R(x,y)= \sum _{x',y'} (T'(x',y')  \cdot I'(x+x',y+y'))\f]
-//                          //!< where
-//                          //!< \f[\begin{array}{l} T'(x',y')=T(x',y') - 1/(w  \cdot h)  \cdot \sum _{x'',y''} T(x'',y'') \\ I'(x+x',y+y')=I(x+x',y+y') - 1/(w  \cdot h)  \cdot \sum _{x'',y''} I(x+x'',y+y'') \end{array}\f]
-//    TM_CCOEFF_NORMED = 5  //!< \f[R(x,y)= \frac{ \sum_{x',y'} (T'(x',y') \cdot I'(x+x',y+y')) }{ \sqrt{\sum_{x',y'}T'(x',y')^2 \cdot \sum_{x',y'} I'(x+x',y+y')^2} }\f]
-//};
+
+template<typename Pixel, typename Data>
+struct MatlabToCVMatHelper
+{
+  void operator()(cv::Mat& image, const Data*& dataPtr)
+  {
+    // Loop over each pixel in the image 
+    for (int iRow = 0; iRow < image.rows; ++iRow) {
+      Pixel*          pixRow      = image.ptr<Pixel>(iRow);
+      for (int iCol = 0; iCol < image.cols; ++iCol) {
+        pixRow[iCol]  = static_cast<Pixel>( dataPtr[iCol * image.rows] );
+      } // end loop over columns
+      
+      // Read from next row
+      ++dataPtr;
+    } // end loop over rows
+
+    // Set write pointer to the end of the read data
+    dataPtr          += image.rows * (image.cols - 1);
+  }
+};
+
+template<typename Pixel, typename Data>
+struct MatlabToCVMat
+{
+  void operator()(cv::Mat& image, const int dataType, const void* dataPtr, const size_t numRows, const size_t numCols, const size_t iFrame = 0)
+  {
+    image.create(static_cast<int>(numRows), static_cast<int>(numCols), dataType);
+
+    const Data*         data      = (Data*) dataPtr;
+    cvTypeCall<MatlabToCVMatHelper, Data>(image, data + numRows*numCols*iFrame, iFrame);
+  }
+
+  void operator()(std::vector<cv::Mat>& imgStack, const int dataType, const mxArray* input)
+  {
+    // Compute number of frames from dimensions >= 3
+    const size_t*             inputSize       = mxGetDimensions(input);
+    size_t                    numFrames       = 1;
+    for (size_t iDim = 2, maxDims = mxGetNumberOfDimensions(input); iDim < maxDims; ++iDim)
+      numFrames              *= inputSize[iDim];
+    imgStack.resize(numFrames);
+
+    // Loop through and process each frame
+    const Data*               inputData       = (Data*) mxGetData(input);
+    for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
+      imgStack[iFrame].create(static_cast<int>(inputSize[0]), static_cast<int>(inputSize[1]), dataType);
+      cvTypeCall<MatlabToCVMatHelper, Data>(imgStack[iFrame], inputData);
+    }
+  }
+};
 
 
 
-#endif //imageIMAGE_H
+#endif //CVTOMATLAB_H

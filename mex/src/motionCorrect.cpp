@@ -50,11 +50,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mexEvalString("help cv.motionCorrect");
     mexErrMsgIdAndTxt ( "motionCorrect:usage", "Incorrect number of inputs/outputs provided." );
   }
-  if (!mxIsChar(prhs[0]))     mexErrMsgIdAndTxt("motionCorrect:arguments", "inputPath must be a string.");
 
 
   // Parse input
-  char*                       inputPath       = mxArrayToString(prhs[0]);
+  const mxArray*              input           = prhs[0];
+  char*                       inputPath       = ( mxIsChar(input) 
+                                               && mxGetNumberOfDimensions(input) < 3 
+                                               && ( mxGetN(input) == 1 || mxGetM(prhs[1]) == 1 )
+                                                ? mxArrayToString(input) 
+                                                : 0 
+                                                );
   const int                   maxShift        = int( mxGetScalar(prhs[1]) );
   const int                   maxIter         = int( mxGetScalar(prhs[2]) );
   const bool                  displayProgress = ( nrhs > 3 ? mxGetScalar(prhs[3]) > 0     : false  );
@@ -70,18 +75,24 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Load image with stored bit depth
   std::vector<cv::Mat>        imgStack;
-  if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_UNCHANGED))
-    mexErrMsgIdAndTxt( "motionCorrect:load", "Failed to load input image." );
+  if (!inputPath)             // If a matrix is directly provided, need to copy it into OpenCV format
+    cvMatlabCall<MatlabToCVMat>(imgStack, mxGetClassID(input), input);
+  else if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_UNCHANGED))
+      mexErrMsgIdAndTxt( "motionCorrect:load", "Failed to load input image." );
+
+  // Sanity checks on image stack
   if (imgStack.empty())
     mexErrMsgIdAndTxt( "motionCorrect:load", "Input image has no frames." );
   if (imgStack[0].cols * imgStack[0].rows < 3)
     mexErrMsgIdAndTxt( "motionCorrect:load", "Input image too small, must have at least 3 pixels." );
+
 
   // The template size restricts the maximum allowable shift
   const size_t                numFrames       = imgStack.size();
   const int                   firstRefRow     = std::min(maxShift, (imgStack[0].rows - 1)/2);
   const int                   firstRefCol     = std::min(maxShift, (imgStack[0].cols - 1)/2);
   const size_t                metricSize[]    = {2*firstRefRow + 1, 2*firstRefCol + 1, numFrames};
+
 
   // Create output structure
   mxArray*                    outXShifts      = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);
@@ -284,6 +295,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxSetN(outYShifts, iteration);
   }
 
+  // Compute median image one final time to store the reference image
+  cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
+  mxArray*                    outRef          = mxCreateNumericMatrix(imgRef.rows, imgRef.cols, mxSINGLE_CLASS, mxREAL);
+  float*                      ptrRef          = (float*) mxGetData(outRef);
+  cvCall<MatToMatlab32>(imgRef, ptrRef);
+
 
   // Parameters
   static const char*          PARAM_FIELDS[]  = { "maxShift"
@@ -299,10 +316,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Metric
   static const char*          METRIC_FIELDS[] = { "name"
                                                 , "values"
+                                                , "reference"
                                                 };
-  mxArray*                    outMetric       = mxCreateStructMatrix(1, 1, 2, METRIC_FIELDS);
+  mxArray*                    outMetric       = mxCreateStructMatrix(1, 1, 3, METRIC_FIELDS);
   mxSetField(outMetric, 0, "name"       , mxCreateString(""));
   mxSetField(outMetric, 0, "values"     , outStackMetric);
+  mxSetField(outMetric, 0, "reference"  , outRef);
 
   // Motion correction data structure
   static const char*          OUT_FIELDS[]    = { "xShifts"

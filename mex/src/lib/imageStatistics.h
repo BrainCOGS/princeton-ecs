@@ -49,9 +49,7 @@ struct MedianVecMat32
 
         // Copy the stack of pixels into temporary storage
         for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
-          traceTemp[iFrame]     = pixRow[iFrame][iCol];
-        //float       temp[20];
-        //for (int i=0; i<20; ++i)  temp[i] = traceTemp[i];
+          traceTemp[iFrame]     = static_cast<float>( pixRow[iFrame][iCol] );
 
         // Store the computed median
         medRow[iCol]            = quickSelect(traceTemp);
