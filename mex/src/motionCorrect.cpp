@@ -316,12 +316,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Metric
   static const char*          METRIC_FIELDS[] = { "name"
                                                 , "values"
-                                                , "reference"
                                                 };
-  mxArray*                    outMetric       = mxCreateStructMatrix(1, 1, 3, METRIC_FIELDS);
+  mxArray*                    outMetric       = mxCreateStructMatrix(1, 1, 2, METRIC_FIELDS);
   mxSetField(outMetric, 0, "name"       , mxCreateString(""));
   mxSetField(outMetric, 0, "values"     , outStackMetric);
-  mxSetField(outMetric, 0, "reference"  , outRef);
 
   // Motion correction data structure
   static const char*          OUT_FIELDS[]    = { "xShifts"
@@ -329,13 +327,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                                                 , "method"
                                                 , "params"
                                                 , "metric"
+                                                , "reference"
                                                 };
   plhs[0]                     = mxCreateStructMatrix(1, 1, 5, OUT_FIELDS);
-  mxSetField(plhs[0], 0, "xShifts", outXShifts);
-  mxSetField(plhs[0], 0, "yShifts", outYShifts);
-  mxSetField(plhs[0], 0, "method" , mxCreateString("cv.motionCorrect"));
-  mxSetField(plhs[0], 0, "params" , outParams);
-  mxSetField(plhs[0], 0, "metric" , outMetric);
+  mxSetField(plhs[0], 0, "xShifts"  , outXShifts);
+  mxSetField(plhs[0], 0, "yShifts"  , outYShifts);
+  mxSetField(plhs[0], 0, "method"   , mxCreateString("cv.motionCorrect"));
+  mxSetField(plhs[0], 0, "params"   , outParams);
+  mxSetField(plhs[0], 0, "metric"   , outMetric);
+  mxSetField(plhs[0], 0, "reference", outRef);
 
 
   //---------------------------------------------------------------------------
