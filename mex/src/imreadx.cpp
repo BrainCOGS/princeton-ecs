@@ -340,6 +340,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     } // end loop over rows
   }
 
+
   //---------------------------------------------------------------------------
   // Memory cleanup
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 

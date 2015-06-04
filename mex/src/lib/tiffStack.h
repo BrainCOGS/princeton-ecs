@@ -18,7 +18,7 @@
   Mostly copied from loadsave.cpp imreadmulti_().
 */
 template<typename Functor>
-bool  processStack(const char* filename, int flags, Functor processor)
+bool  processStack(const char* filename, int flags, Functor& processor)
 {
   /// Search for the relevant decoder to handle the imagery
   cv::TiffDecoder               decoder;
