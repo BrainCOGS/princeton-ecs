@@ -4,7 +4,7 @@
   If sub-pixel registration is requested, cv::warpAffine() is used.
   Usage syntax:
     [image, stats, median] = imreadx( inputPath, xShift, yShift, xScale, yScale             ...
-                                    , [setEmptyFramesToNaN = false], [subtractZero = false] ...
+                                    , [blackTolerance = nan], [subtractZero = false]        ...
                                     , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]  ...
                                     , [methodResize = cve.InterpolationFlags.INTER_AREA]    ...
                                     );
@@ -44,7 +44,7 @@ public:
   ImageProcessor() 
     : nFramePixels  (0)
     , emptyNSigmas  (5)
-    , emptyProb     (1 - 3e-7)
+    , emptyProb     (-999)
     , offset        (0)
     , maxZeroValue  (std::numeric_limits<double>::infinity())
     , numFrames     (0)
@@ -69,7 +69,7 @@ public:
     //  Black frame detection
     //---------------------------------------------------------------------------
 
-    if (doNaNEmpty) {
+    if (emptyProb > 0) {
       // Use the first frame to estimate the black level and variance
       bool                      isEmpty = false;
       if (numFrames == 1) {
@@ -172,7 +172,6 @@ public:
   double*           yShift;
   double            xScale;
   double            yScale;
-  bool              doNaNEmpty;
   bool              subtractZero;
   int               methodInterp;
   int               methodResize;
@@ -230,7 +229,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   processor.yShift            = ( nrhs > 2 && !mxIsEmpty(prhs[2]) ) ? mxGetPr(prhs[2])          : 0     ;
   processor.xScale            = ( nrhs > 3 && !mxIsEmpty(prhs[3]) ) ? mxGetScalar(prhs[3])      : -999  ;
   processor.yScale            = ( nrhs > 4 && !mxIsEmpty(prhs[4]) ) ? mxGetScalar(prhs[4])      : -999  ;
-  processor.doNaNEmpty        = ( nrhs > 5 ?                         (mxGetScalar(prhs[5]) > 0) : false );
+  processor.emptyProb         = ( nrhs > 5 ?                          mxGetScalar(prhs[5])      : -999  );
   processor.subtractZero      = ( nrhs > 6 ?                         (mxGetScalar(prhs[6]) > 0) : false );
   processor.methodInterp      = ( nrhs > 7 ? int( mxGetScalar(prhs[7]) ) : cv::InterpolationFlags::INTER_LINEAR );
   processor.methodResize      = ( nrhs > 8 ? int( mxGetScalar(prhs[8]) ) : cv::InterpolationFlags::INTER_AREA   );
