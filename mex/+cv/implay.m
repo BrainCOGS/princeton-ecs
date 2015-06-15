@@ -23,8 +23,12 @@ function player = implay(img, fps, saturation)
   pixCDF            = pixCDF / pixCDF(end);
   
   % Linear interpolation cannot handle non-increasing values
-  selPix            = (freq > 0);
-  pixRange          = interp1(pixCDF(selPix), pixValue(selPix), [saturation, 1-saturation], 'linear', 'extrap');
+  if numel(saturation) == 2
+    pixRange        = saturation;
+  else
+    selPix          = (freq > 0);
+    pixRange        = interp1(pixCDF(selPix), pixValue(selPix), [saturation, 1-saturation], 'linear', 'extrap');
+  end
   
   player.Visual.ColorMap.UserRangeMin   = pixRange(1);
   player.Visual.ColorMap.UserRangeMax   = pixRange(2);
