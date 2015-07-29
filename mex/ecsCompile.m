@@ -2,10 +2,9 @@ function ecsCompile(varargin)
 % ecsCompile    MEX compilation utility for the Princeton ECS package.
 %
 % This script will compile all MEX files in the src subdirectory (relative
-% to the directory in which ecsCompile.m is located). It depends on the
-% mexopencv (https://github.com/kyamagu/mexopencv) package for interfacing
-% OpenCV to Matlab; it is required to have performed the OpenCV and
-% mexopencv installation procedures before invoking this command.
+% to the directory in which ecsCompile.m is located). Additionally you can
+% install the mexopencv (https://github.com/kyamagu/mexopencv) package,
+% which has more MEX interfaces to OpenCV; however this is not required.
 %
 % Users will typically only have to call ecsCompile() without arguments.
 % Arguments can be provided, in which case they will be passed on to the
@@ -18,12 +17,11 @@ function ecsCompile(varargin)
 % 
 % To add a MEX program to the compilation list, simply put it in the src
 % directory. ecsCompile() will attempt to guess whether or not a given MEX
-% program depends on OpenCV, by detecting either a mexopencv.hpp include
-% statement, or use of the cv namespace (e.g. "cv::Mat"), or use of an
-% OpenCV constant (e.g. "CV_8U"). If neither of these are found, it will
-% compile the MEX program without linking OpenCV libraries. MEX programs
-% that use OpenCV will be located in the +cv directory, and those without
-% will be located in the +ecs directory.
+% program depends on OpenCV, by detecting use of the cv namespace (e.g.
+% "cv::Mat"), or use of an OpenCV constant (e.g. "CV_8U"). If neither of
+% these are found, it will compile the MEX program without linking OpenCV
+% libraries. MEX programs that use OpenCV will be located in the +cv
+% directory, and those without will be located in the +ecs directory.
 %
 % Code in the following subdirectories are treated in special ways:
 %   src/lib       C++ code that should be compiled into shared object
@@ -119,29 +117,6 @@ for iLib = 1:numel(THIRDPARTY)
 end
 
 
-%----------  mexopencv installation
-try
-  MEXOPENCV     = mexopencv.root();
-catch err
-  fprintf('Error encountered while trying to detect mexopencv installation:\n  %s    %s\n', err.identifier, err.message);
-  fprintf('Make sure that you have mexopencv installed and in the Matlab path.\n');
-  fprintf('For example mexopencv.root() should return the directory in which it was installed.\n');
-  return;
-end
-
-MEXOPENCV_INC   = fullfile(MEXOPENCV, 'include');
-if ~exist(MEXOPENCV_INC, 'dir')
-  error('ecsCompile:mexopencv', 'mexopencv headers directory %s not found.', MEXOPENCV_INC);
-end
-
-MEXOPENCV_OBJ   = fullfile(MEXOPENCV, 'lib');
-cvObjs          = dir(fullfile(MEXOPENCV_OBJ, '*.obj'));
-cvObjs          = fullfile(MEXOPENCV_OBJ, {cvObjs.name});
-if isempty(cvObjs)
-  error('ecsCompile:mexopencv', 'mexopencv object files not found in %s.', MEXOPENCV_OBJ);
-end
-
-
 %----------  Global code compilation options
 if debug
   varargin{end+1} = '-D_DEBUG';
@@ -155,14 +130,16 @@ end
 cvOpts        = [ varargin                                ...
                 , { '-largeArrayDims'                     ...
                   , sprintf('-I"%s"', OPENCV_INC)         ...
-                  , sprintf('-I"%s"', MEXOPENCV_INC)      ...
                   , sprintf('-I"%s"', ECS_OPENCV)         ...
                   , sprintf('-L"%s"', OPENCV_LIB)         ...
                   , sprintf('-L"%s"', OPENCV_3RD)         ...
-                  , '-DWIN32'                             ... libtiff
                   }                                       ...
+                ];
+if strncmpi(computer('arch'), 'win', 3)
+  cvOpts{end+1} = '-DWIN32';
+end
+cvOpts        = [ cvOpts                                  ...
                 , cvLibs                                  ...
-                , cvObjs                                  ...
                 ];
 
 
@@ -217,7 +194,7 @@ function [cvMex, otherMex] = getMEXCode(srcDir, srcMask)
   for iFile = numel(srcFile):-1:1
     source            = fileread(srcFile(iFile).name);
     cvMatch           = regexp( source                                                        ...
-                              , '^\s*#\s*include\s+.*(mexopencv[.]hpp|opencv)|\<cv\s*::|\<CV_|\<TIFF|\<Cv[A-Z]'  ...
+                              , '^\s*#\s*include\s+.*(opencv)|\<cv\s*::|\<CV_|\<Cv[A-Z]'      ...
                               , 'lineanchors', 'dotexceptnewline', 'once'                     ...
                               );
     if isempty(cvMatch)

@@ -6,7 +6,7 @@
 #ifndef MATUTILS_H
 #define MATUTILS_H
 
-#include <opencv2\core.hpp>
+#include <opencv2/core.hpp>
 
 
 /**

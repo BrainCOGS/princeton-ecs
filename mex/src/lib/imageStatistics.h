@@ -12,7 +12,7 @@
 #ifndef IMAGESTATISTICS_H
 #define IMAGESTATISTICS_H
 
-#include <opencv2\core.hpp>
+#include <opencv2/core.hpp>
 #include "quickSelect.h"
 #include "utilities.h"
 

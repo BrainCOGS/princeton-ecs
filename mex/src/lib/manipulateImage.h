@@ -11,7 +11,7 @@
 #ifndef MANIPULATEIMAGE_H
 #define MANIPULATEIMAGE_H
 
-#include <opencv2\core.hpp>
+#include <opencv2/core.hpp>
 
 
 /**

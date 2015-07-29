@@ -29,12 +29,6 @@
 #include "lib/cvToMatlab.h"
 
 
-#define _DO_NOT_EXPORT
-#if defined(_DO_NOT_EXPORT)
-#define DllExport  
-#else
-#define DllExport __declspec(dllexport)
-#endif
 
 
 

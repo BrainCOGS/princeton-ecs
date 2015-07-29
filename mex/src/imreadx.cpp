@@ -17,28 +17,18 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <libtiff/tiffio.h>
 #include <mex.h>
 #include "lib/matUtils.h"
-#include "lib/tiffStack.h"
 #include "lib/cvToMatlab.h"
 #include "lib/manipulateImage.h"
 #include "lib/imageStatistics.h"
-
-
-#define _DO_NOT_EXPORT
-#if defined(_DO_NOT_EXPORT)
-#define DllExport  
-#else
-#define DllExport __declspec(dllexport)
-#endif
 
 
 
 /**
 */
 template<typename Pixel>
-class ImageProcessor
+class ImageProcessor : public cv::MatFunction
 {
 public:
   ImageProcessor() 
@@ -59,7 +49,7 @@ public:
     yTrans[1]                   = 1;
   }
 
-  void operator()(const cv::Mat& image)
+  bool operator()(cv::Mat& image)
   {
     const cv::Mat*              source  = 0;
     cv::Mat*                    target  = &frmTemp;
@@ -101,7 +91,7 @@ public:
           ++xShift;
           ++yShift;
         }
-        return;                 // Skip all further processing
+        return true;            // Skip all further processing
       }
     }
 
@@ -161,6 +151,8 @@ public:
     //  Copy to Matlab
     //---------------------------------------------------------------------------
     cvCall<MatToMatlab32>(*source, imgData, offset);
+
+    return true;
   }
 
 
@@ -242,36 +234,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (processor.xScale <= 0)
     processor.methodResize    = -1;
 
-  // Suppress warnings as they block execution until the user clicks the dialog box
-  TIFFErrorHandler            errHandler      = TIFFSetWarningHandler(NULL);
-
 
   //---------------------------------------------------------------------------
   // Get parameters of image stack
-  uint32                      imgWidth        = 0;
-  uint32                      imgHeight       = 0;
+  int                         imgWidth        = 0;
+  int                         imgHeight       = 0;
   int                         numFrames       = 0;
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
-  {
-    TIFF*                     tif             = TIFFOpen(inputPath[iIn], "r");
-    if (!tif)                 mexErrMsgIdAndTxt( "imreadx:load", "Failed to load input image from %s.", inputPath[iIn] );
-
-    uint32                    width, height;
-    if (  !TIFFGetField( tif, TIFFTAG_IMAGEWIDTH , &width  )
-      ||  !TIFFGetField( tif, TIFFTAG_IMAGELENGTH, &height )
-       )
-      mexErrMsgIdAndTxt( "imreadx:load", "Invalid image header, could not obtain width and height from %s.", inputPath[iIn] );
-
-    if (iIn < 1) {
-      imgWidth                = width;
-      imgHeight               = height;
-    }
-    else if (width != imgWidth || height != imgHeight)
-      mexErrMsgIdAndTxt( "imreadx:load", "Inconsistent image width (%d vs. %d) or height (%d vs. %d) in %s.", inputPath[iIn], width, imgWidth, height, imgHeight );
-
-    do { ++numFrames; } while (TIFFReadDirectory(tif));
-    TIFFClose(tif);
-  }
+    numFrames                += cv::imfinfo(inputPath[iIn], imgWidth, imgHeight, iIn > 0);
 
   // Adjust for scaling if provided
   if (processor.methodResize >= 0) {
@@ -297,7 +267,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   //---------------------------------------------------------------------------
   // Call the stack processor
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
-    processStack(inputPath[iIn], cv::ImreadModes::IMREAD_UNCHANGED, processor);
+    cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED);
 
   // Return statistics structure if so requested
   if (nlhs > 1) {
@@ -344,7 +314,4 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Memory cleanup
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
     mxFree(inputPath[iIn]);
-
-  // Restore default error handler
-  TIFFSetWarningHandler(errHandler);
 }

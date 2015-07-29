@@ -9,7 +9,7 @@
 #define CVTOMATLAB_H
 
 #include <mex.h>
-#include <opencv2\core.hpp>
+#include <opencv2/core.hpp>
 #include "quickSelect.h"
 
 
