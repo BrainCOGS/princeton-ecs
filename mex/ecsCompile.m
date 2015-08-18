@@ -76,6 +76,13 @@ currentDir      = pwd();
 cleanup         = onCleanup(@() cd(currentDir));
 
 
+
+% .lib -> .so
+% .obj -> .o
+% opencv & opencv_base -> /usr/local
+% user configurable 3rdparty location
+% no 'debug' mode
+
 %----------  OpenCV installation
 try
   OPENCV        = getenv('OPENCV_DIR');
