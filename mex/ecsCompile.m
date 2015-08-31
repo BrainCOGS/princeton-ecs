@@ -193,6 +193,12 @@ end
 %%
 function [cvMex, otherMex] = getMEXCode(srcDir, srcMask)
 
+  if ~exist(srcDir, 'dir')
+    cvMex             = {};
+    otherMex          = {};
+    return;
+  end
+
   cd(srcDir);
   srcFile             = dir(fullfile(srcDir, srcMask));
   cvMex               = srcFile;
