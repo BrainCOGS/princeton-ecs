@@ -8,8 +8,8 @@
 */
 
 
-#ifndef IMAGEFILTER2D_H
-#define IMAGEFILTER2D_H
+#ifndef IMAGEFILTER_H
+#define IMAGEFILTER_H
 
 #include <vector>
 #include <algorithm>
@@ -100,6 +100,8 @@ public:
   }
 };
 
+
+//=================================================================================================
 
 // Create filter class and process
 template<template<typename> class Filter, typename Arg1>
@@ -222,4 +224,4 @@ void applyFilter(const mxArray* image, void* outImage, const Arg1& arg1, const A
 }
 
 
-#endif //IMAGEFILTER2D_H
+#endif //IMAGEFILTER_H

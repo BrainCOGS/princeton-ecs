@@ -66,4 +66,31 @@ struct CopyShiftedImage32
 };
 
 
+
+/**
+  Set pixels corresponding to true in the given mask to the given value.
+*/
+template<typename Pixel>
+struct MaskPixels
+{
+  void operator()(cv::Mat& image, const bool* maskPtr, const Pixel maskedValue)
+  {
+    // Loop over each pixel in the image 
+    for (int iRow = 0; iRow < image.rows; ++iRow) {
+      Pixel*            pixRow      = image.ptr<Pixel>(iRow);
+      for (int iCol = 0; iCol < image.cols; ++iCol) {
+        if (maskPtr[iCol * image.rows])
+          pixRow[iCol]  = maskedValue;
+      } // end loop over columns
+
+        // Write next row
+      ++maskPtr;
+    } // end loop over rows
+
+    // Set write pointer to the end of the written data
+    maskPtr            += image.rows * (image.cols - 1);
+  }
+};
+
+
 #endif //MANIPULATEIMAGE_H
