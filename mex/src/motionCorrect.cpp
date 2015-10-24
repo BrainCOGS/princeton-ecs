@@ -4,6 +4,7 @@
   Usage syntax:
     mc  = cv.motionCorrect( inputPath, maxShift, maxIter                            ...
                           , [displayProgress = false], [stopBelowShift = 0]         ...
+                          , [blackTolerance = nan]                                  ...
                           , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]    ...
                           , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]  ...
                           , [emptyValue = mean]                                     ...
@@ -20,6 +21,7 @@
 
 
 #include <cmath>
+#include <vector>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mex.h>
@@ -27,7 +29,6 @@
 #include "lib/imageStatistics.h"
 #include "lib/manipulateImage.h"
 #include "lib/cvToMatlab.h"
-
 
 
 
@@ -40,9 +41,9 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 3 || nrhs > 8 || nlhs != 1) {
+  if (nrhs < 3 || nrhs > 9 || nlhs != 1) {
     mexEvalString("help cv.motionCorrect");
-    mexErrMsgIdAndTxt ( "motionCorrect:usage", "Incorrect number of inputs/outputs provided." );
+    mexErrMsgIdAndTxt( "motionCorrect:usage", "Incorrect number of inputs/outputs provided." );
   }
 
 
@@ -58,10 +59,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const int                   maxIter         = int( mxGetScalar(prhs[2]) );
   const bool                  displayProgress = ( nrhs > 3 ? mxGetScalar(prhs[3]) > 0     : false  );
   const double                stopBelowShift  = ( nrhs > 4 ? mxGetScalar(prhs[4])         : 0.     );
-  const int                   methodInterp    = ( nrhs > 5 ? int( mxGetScalar(prhs[5]) )  : cv::InterpolationFlags::INTER_LINEAR     );
-  const int                   methodCorr      = ( nrhs > 6 ? int( mxGetScalar(prhs[6]) )  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
-  const double                usrEmptyValue   = ( nrhs > 7 ?      mxGetScalar(prhs[7])    : 0.     );
-  const bool                  emptyIsMean     = ( nrhs < 8 );
+  const double                emptyProb       = ( nrhs > 5 ? mxGetScalar(prhs[5])         : -999.  );
+  const int                   methodInterp    = ( nrhs > 6 ? int( mxGetScalar(prhs[6]) )  : cv::InterpolationFlags::INTER_LINEAR     );
+  const int                   methodCorr      = ( nrhs > 7 ? int( mxGetScalar(prhs[7]) )  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
+  const double                usrEmptyValue   = ( nrhs > 8 ?      mxGetScalar(prhs[8])    : 0.     );
+  const bool                  emptyIsMean     = ( nrhs < 9 );
   const bool                  subPixelReg     = ( methodInterp >= 0 );
 
 
@@ -87,6 +89,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const int                   firstRefCol     = std::min(maxShift, (imgStack[0].cols - 1)/2);
   const size_t                metricSize[]    = {2*firstRefRow + 1, 2*firstRefCol + 1, numFrames};
 
+  // If so desired, omit black (empty) frames
+  std::vector<bool>           isEmpty;
+  if (emptyProb > 0)          cvCall<DetectEmptyFrames>(imgStack, isEmpty, emptyProb);
+  else                        isEmpty.assign(imgStack.size(), false);
+
 
   // Create output structure
   mxArray*                    outXShifts      = mxCreateDoubleMatrix(numFrames, maxIter, mxREAL);
@@ -105,7 +112,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   cv::Mat                     frmTemp   (imgStack[0].rows                , imgStack[0].cols                , CV_32F);
   cv::Mat                     imgRef    (imgStack[0].rows - 2*firstRefRow, imgStack[0].cols - 2*firstRefCol, CV_32F);
   cv::Mat                     metric    (metricSize[0]                   , metricSize[1]                   , CV_32F);
-  std::vector<float>          traceTemp(numFrames);
+  std::vector<float>          traceTemp (numFrames);
   std::vector<cv::Mat>        imgShifted(numFrames);
 
   // Obtain some global statistics to be used for data scaling and display
@@ -120,6 +127,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (isIntegral || displayProgress)
   {
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
+      if (isEmpty[iFrame])    continue;
+
       double                  frmMin, frmMax;
       cv::minMaxLoc(imgStack[iFrame], &frmMin, &frmMax);
       minValue                = std::min(minValue, frmMin);
@@ -148,7 +157,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     pixShift                  = 0;
   //}
   for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
-    imgStack[iFrame].convertTo(imgShifted[iFrame], scratchType, pixScale, pixShift);
+    if (!isEmpty[iFrame])     imgStack[iFrame].convertTo(imgShifted[iFrame], scratchType, pixScale, pixShift);
 
   // Translation matrix, for use with sub-pixel registration
   cv::Mat                     translator(2, 3, CV_32F);
@@ -167,6 +176,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (displayProgress) {
     double                    variance        = 0;
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
+      if (isEmpty[iFrame])    continue;
+
       cv::Scalar              mean, stddev;
       cv::meanStdDev(imgStack[iFrame], mean, stddev);
       meanValue              += mean[0];

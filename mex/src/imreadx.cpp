@@ -19,7 +19,6 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <mex.h>
 #include "lib/matUtils.h"
 #include "lib/cvToMatlab.h"
 #include "lib/manipulateImage.h"
@@ -257,7 +256,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
   }
   else if (!mxIsChar(prhs[0]))
-    mexErrMsgIdAndTxt("imreadx:arguments", "inputPath must be a string or array of strings.");
+    mexErrMsgIdAndTxt("imreadx:arguments", "inputPath must be a string or cell array of strings.");
   else
     inputPath.push_back( mxArrayToString(input) );
 
@@ -295,9 +294,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Get parameters of image stack
   int                         srcWidth        = 0;
   int                         srcHeight       = 0;
+  int                         srcBits         = 0;
   int                         numFrames       = 0;
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
-    numFrames                += cv::imfinfo(inputPath[iIn], srcWidth, srcHeight, iIn > 0);
+    numFrames                += cv::imfinfo(inputPath[iIn], srcWidth, srcHeight, srcBits, iIn > 0);
     if (numFrames >= processor.maxNumFrames)  break;
   }
   if (numFrames < processor.maxNumFrames)
@@ -309,7 +309,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
   // Adjust for scaling if provided
-  int                         imgWidth        = srcWidth;
+  int                         imgWidth        = srcWidth ;
   int                         imgHeight       = srcHeight;
   if (processor.methodResize >= 0) {
     imgWidth                  = cvRound(imgWidth  * processor.xScale);
@@ -334,9 +334,19 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Call the stack processor
-  for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
-    if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED))
-      break;
+  if (inputPath.size() == 1) {
+    cv::imreadmulti(inputPath[0], &processor, cv::ImreadModes::IMREAD_UNCHANGED);
+  }
+  else {
+    mexPrintf("       ");
+    for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
+      if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED))
+        break;
+      mexPrintf("\b\b\b\b\b\b\b%3d/%-3d", iIn+1, inputPath.size());
+      mexEvalString("drawnow");
+    }
+    mexPrintf("\n");
+  }
 
 
   // Return statistics structure if so requested

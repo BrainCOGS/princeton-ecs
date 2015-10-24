@@ -23,7 +23,7 @@
 template<typename Pixel>
 struct MedianVecMat32
 {
-  void operator()(const std::vector<cv::Mat>& stack, cv::Mat& median, std::vector<float>& traceTemp, int firstRow, int firstCol)
+  void operator()(const std::vector<cv::Mat>& stack, cv::Mat& median, std::vector<float>& traceTemp, int firstRow, int firstCol, const std::vector<bool>* omit = 0)
   {
     // Sanity check for output size and type
     CV_DbgAssert(   !stack.empty()
@@ -42,17 +42,22 @@ struct MedianVecMat32
     for (int iRow = 0; iRow < median.rows; ++iRow) {
       // Pre-cache row pointers
       for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
-        pixRow[iFrame]          = stack[iFrame].ptr<Pixel>(firstRow + iRow) + firstCol;
+        if (!omit || !(*omit)[iFrame])
+          pixRow[iFrame]        = stack[iFrame].ptr<Pixel>(firstRow + iRow) + firstCol;
 
       float*        medRow      = median.ptr<float>(iRow);
       for (int iCol = 0; iCol < median.cols; ++iCol) {
 
         // Copy the stack of pixels into temporary storage
+        size_t      nTraces     = 0;
         for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
-          traceTemp[iFrame]     = static_cast<float>( pixRow[iFrame][iCol] );
+          if (!omit || !(*omit)[iFrame]) {
+            traceTemp[nTraces]  = static_cast<float>( pixRow[iFrame][iCol] );
+            ++nTraces;
+          }
 
         // Store the computed median
-        medRow[iCol]            = quickSelect(traceTemp);
+        medRow[iCol]            = quickSelect(traceTemp, nTraces);
       } // end loop over columns
     } // end loop over rows
   }
@@ -99,5 +104,44 @@ struct CountPixelsInRange
     } // end loop over rows
   }
 };
+
+
+/**
+  Black a.k.a. empty frame detection
+*/
+template<typename Pixel>
+struct DetectEmptyFrames
+{
+  void operator()(const std::vector<cv::Mat>& stack, std::vector<bool>& isEmpty, double emptyProb, double emptyNSigmas = 5)
+  {
+    // Special case for empty stacks
+    isEmpty.resize(stack.size());
+    if (stack.empty())        return;
+
+
+    // Use the first frame to estimate the black level and variance
+    SampleStatistics          statistics;
+    const int                 nFramePixels  = stack[0].rows * stack[0].cols;
+    cvCall<AccumulateMatStatistics>(stack[0], statistics);
+
+    // Account for multiple samples when computing the fraction of pixels that are
+    // expected to fall below the zero + noise threshold
+    isEmpty[0]                = true;       // by definition
+    emptyProb                 = std::pow(emptyProb, nFramePixels);
+    const Pixel               offset        = static_cast<Pixel>( statistics.getMean() );
+    const double              maxZeroValue  = offset + emptyNSigmas * statistics.getRMS();
+
+
+    for (size_t iFrame = 0; iFrame < stack.size(); ++iFrame)
+    {
+      static const double     negInf        = -std::numeric_limits<double>::infinity();
+      int                     numZeros;
+      cvCall<CountPixelsInRange>(stack[iFrame], negInf, maxZeroValue, numZeros);
+      if (numZeros >= emptyProb * nFramePixels)
+        isEmpty[iFrame]       = true;
+    }
+  }
+};
+
 
 #endif //IMAGESTATISTICS_H

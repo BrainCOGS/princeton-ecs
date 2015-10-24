@@ -72,13 +72,18 @@ public:
   /**
     Applies the given filtering function to the source image and stores the output in the target image.
   */
-  void operator()(void* targetImage, const void* sourceImage)
+  void operator()(void* targetImage, const void* sourceImage, const bool* isSelected)
   {
     Pixel*                target      = (Pixel*)        targetImage;
     const Pixel*          source      = (const Pixel*)  sourceImage;
 
     for (int tgtCol = 0, tgtPix = 0; tgtCol < imageWidth; ++tgtCol) {
       for (int tgtRow = 0; tgtRow < imageHeight; ++tgtRow, ++tgtPix) {
+        if (isSelected && !isSelected[tgtPix]) {
+          target[tgtPix]  = source[tgtPix];
+          continue;
+        }
+
         const int         mskOffset   = maskOffset (tgtRow);
         const int         srcOffset   = imageOffset(tgtRow);
         int               mskPix      = maskFirstPixel (tgtRow, tgtCol);
@@ -105,120 +110,120 @@ public:
 
 // Create filter class and process
 template<template<typename> class Filter, typename Arg1>
-void applyFilter(const mxArray* image, void* outImage, const Arg1& arg1)
+void applyFilter(const mxArray* image, void* outImage, const bool* isSelected, const Arg1& arg1)
 {
   const int                   imageWidth    = static_cast<int>( mxGetN(image) );
   const int                   imageHeight   = static_cast<int>( mxGetM(image) );
   void*                       inImage       = mxGetData(image);
 
   switch (mxGetClassID(image)) {
-  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
+  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
   case mxCHAR_CLASS:
-  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
-  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1)( outImage, inImage );    break;
+  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
+  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1)( outImage, inImage, isSelected );    break;
   default:                mexErrMsgIdAndTxt( "applyFilter:arguments", "Unsupported type of image." );
   }
 }
 
 // Create filter class and process
 template<template<typename> class Filter, typename Arg1, typename Arg2>
-void applyFilter(const mxArray* image, void* outImage, const Arg1& arg1, const Arg2& arg2)
+void applyFilter(const mxArray* image, void* outImage, const bool* isSelected, const Arg1& arg1, const Arg2& arg2)
 {
   const int                   imageWidth    = static_cast<int>( mxGetN(image) );
   const int                   imageHeight   = static_cast<int>( mxGetM(image) );
   void*                       inImage       = mxGetData(image);
 
   switch (mxGetClassID(image)) {
-  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
+  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
   case mxCHAR_CLASS:
-  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
-  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage );    break;
+  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
+  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2)( outImage, inImage, isSelected );    break;
   default:                mexErrMsgIdAndTxt( "applyFilter:arguments", "Unsupported type of image." );
   }
 }
 
 // Create filter class and process
 template<template<typename> class Filter, typename Arg1, typename Arg2, typename Arg3>
-void applyFilter(const mxArray* image, void* outImage, const Arg1& arg1, const Arg2& arg2, const Arg3& arg3)
+void applyFilter(const mxArray* image, void* outImage, const bool* isSelected, const Arg1& arg1, const Arg2& arg2, const Arg3& arg3)
 {
   const int                   imageWidth    = static_cast<int>( mxGetN(image) );
   const int                   imageHeight   = static_cast<int>( mxGetM(image) );
   void*                       inImage       = mxGetData(image);
 
   switch (mxGetClassID(image)) {
-  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
+  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
   case mxCHAR_CLASS:
-  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
-  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage );    break;
+  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
+  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2, arg3)( outImage, inImage, isSelected );    break;
   default:                mexErrMsgIdAndTxt( "applyFilter:arguments", "Unsupported type of image." );
   }
 }
 
 // Create filter class and process
 template<template<typename> class Filter, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
-void applyFilter(const mxArray* image, void* outImage, const Arg1& arg1, const Arg2& arg2, const Arg3& arg3, const Arg4& arg4)
+void applyFilter(const mxArray* image, void* outImage, const bool* isSelected, const Arg1& arg1, const Arg2& arg2, const Arg3& arg3, const Arg4& arg4)
 {
   const int                   imageWidth    = static_cast<int>( mxGetN(image) );
   const int                   imageHeight   = static_cast<int>( mxGetM(image) );
   void*                       inImage       = mxGetData(image);
 
   switch (mxGetClassID(image)) {
-  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
+  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
   case mxCHAR_CLASS:
-  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
-  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage );    break;
+  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
+  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2, arg3, arg4)( outImage, inImage, isSelected );    break;
   default:                mexErrMsgIdAndTxt( "applyFilter:arguments", "Unsupported type of image." );
   }
 }
 
 // Create filter class and process
 template<template<typename> class Filter, typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5>
-void applyFilter(const mxArray* image, void* outImage, const Arg1& arg1, const Arg2& arg2, const Arg3& arg3, const Arg4& arg4, const Arg5& arg5)
+void applyFilter(const mxArray* image, void* outImage, const bool* isSelected, const Arg1& arg1, const Arg2& arg2, const Arg3& arg3, const Arg4& arg4, const Arg5& arg5)
 {
   const int                   imageWidth    = static_cast<int>( mxGetN(image) );
   const int                   imageHeight   = static_cast<int>( mxGetM(image) );
   void*                       inImage       = mxGetData(image);
 
   switch (mxGetClassID(image)) {
-  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
+  case mxDOUBLE_CLASS:    Filter<double             >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxSINGLE_CLASS:    Filter<float              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
   case mxCHAR_CLASS:
-  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
-  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage );    break;
+  case mxINT8_CLASS:      Filter<char               >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxUINT8_CLASS:     Filter<unsigned char      >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxINT16_CLASS:     Filter<short              >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxUINT16_CLASS:    Filter<unsigned short     >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxINT32_CLASS:     Filter<int                >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxUINT32_CLASS:    Filter<unsigned int       >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxINT64_CLASS:     Filter<long long          >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
+  case mxUINT64_CLASS:    Filter<unsigned long long >(imageWidth, imageHeight, arg1, arg2, arg3, arg4, arg5)( outImage, inImage, isSelected );    break;
   default:                mexErrMsgIdAndTxt( "applyFilter:arguments", "Unsupported type of image." );
   }
 }

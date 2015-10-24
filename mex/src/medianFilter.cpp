@@ -2,7 +2,7 @@
   Computes a median filtered image using a mask to select pixels to include. NaN-valued pixels are ignored.
 
   Usage syntax:
-    filtered  = ecs.medianFilter(image, mask);
+    filtered  = ecs.medianFilter(image, mask, isSelected);
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -55,7 +55,7 @@ public:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs != 2 || nlhs != 1) {
+  if (nlhs != 1 || nrhs < 2 || nrhs > 3) {
     mexEvalString("help ecs.medianFilter");
     mexErrMsgIdAndTxt ( "medianFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -64,6 +64,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Parse input
   const mxArray*              image         = prhs[0];
   const mxArray*              mask          = prhs[1];
+  const mxArray*              selection     = nrhs > 2 ? prhs[2] : 0;
 
   if (mxGetNumberOfDimensions(image) != 2)
     mexErrMsgIdAndTxt("medianFilter:image", "Only 2D images are supported for now.");
@@ -77,6 +78,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (mxGetN(mask) % 2 == 0)
     mexErrMsgIdAndTxt("medianFilter:mask", "mask must have an odd number of columns.");
 
+  const bool*                 isSelected    = 0;
+  if (selection) {
+    if (!mxIsLogical(selection))
+      mexErrMsgIdAndTxt("weightedSumFilter:selection", "selection must be a logical matrix.");
+    if (mxGetNumberOfElements(selection) != mxGetNumberOfElements(image))
+      mexErrMsgIdAndTxt("weightedSumFilter:selection", "selection must have the same number of elements as image.");
+    isSelected                = (const bool*) mxGetData(selection);
+  }
+
 
   //---------------------------------------------------------------------------
 
@@ -89,6 +99,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   plhs[0]                     = filtered;
 
   // Create filter class and process
-  applyFilter<MedianFilter2D>(image, mxGetData(filtered), mask);
+  applyFilter<MedianFilter2D>(image, mxGetData(filtered), isSelected, mask);
 }
 

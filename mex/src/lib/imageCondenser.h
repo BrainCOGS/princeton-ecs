@@ -125,6 +125,35 @@ public:
       } // end loop over rows
     } // end loop over columns
   }
+  
+  
+  void operator()(const SrcPixel* source, TgtPixel* target, const CondenserInfo2D* info, const TgtPixel offset = 0, const bool* masked = 0, const TgtPixel emptyValue = 0)
+  {
+    // Loop through target pixels
+    for (int tgtCol = 0, tgtPix = 0; tgtCol < info->targetWidth; ++tgtCol) {
+      const SrcPixel*             sourceCol   = source + info->sourceHeight * info->colStart[tgtCol];
+      for (int tgtRow = 0; tgtRow < info->targetHeight; ++tgtRow, ++tgtPix) {
+        double                    mean        = 0;
+        double                    sumWeight   = 0;
+
+        const double*             wCol        = info->colWeight[tgtCol].data();
+        for (int srcCol = info->colStart[tgtCol]; srcCol < info->colBound[tgtCol]; ++srcCol) {
+          const SrcPixel*         pix         = sourceCol + info->rowStart[tgtRow];
+          const double*           wRow        = info->rowWeight[tgtRow].data();
+          for (int srcRow = info->rowStart[tgtRow]; srcRow < info->rowBound[tgtRow]; ++srcRow, ++pix) {
+            if (!masked || !masked[srcRow + info->sourceHeight*srcCol])
+              accumulateMean(mean, sumWeight, *pix, (*wRow) * (*wCol));
+            ++wRow;
+          }
+          ++wCol;
+        }
+
+        if (sumWeight)
+          target[tgtPix]          = cv::saturate_cast<TgtPixel>( mean + offset );
+        else    target[tgtPix]    = emptyValue;
+      } // end loop over rows
+    } // end loop over columns
+  }
 };
 
 

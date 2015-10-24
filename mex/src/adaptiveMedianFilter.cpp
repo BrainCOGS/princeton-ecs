@@ -2,7 +2,7 @@
   Computes a median filtered image using a mask to select pixels to include. NaN-valued pixels are ignored.
 
   Usage syntax:
-    filtered  = ecs.adaptiveMedianFilter(image, category, numCategories, targetFracPixels);
+    filtered  = ecs.adaptiveMedianFilter(image, category, numCategories, targetFracPixels, isSelected);
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -84,8 +84,8 @@ public:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs != 4 || nlhs != 1) {
-    mexEvalString("help ecs.adaptiveMedianFilter");
+  if (nlhs != 1 || nrhs < 4 || nrhs > 5) {
+      mexEvalString("help ecs.adaptiveMedianFilter");
     mexErrMsgIdAndTxt ( "adaptiveMedianFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
 
@@ -95,6 +95,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const mxArray*              mask              = prhs[1];
   const int                   numCategories     = static_cast<int>( mxGetScalar(prhs[2]) );
   const double                targetFracPixels  = mxGetScalar(prhs[3]);
+  const mxArray*              selection         = nrhs > 4 ? prhs[4] : 0;
 
 
   if (mxGetNumberOfDimensions(image) != 2)
@@ -109,6 +110,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   if (mxGetN(mask) % 2 == 0)
     mexErrMsgIdAndTxt("adaptiveMedianFilter:mask", "mask must have an odd number of columns.");
 
+  const bool*                 isSelected    = 0;
+  if (selection) {
+    if (!mxIsLogical(selection))
+      mexErrMsgIdAndTxt("weightedSumFilter:selection", "selection must be a logical matrix.");
+    if (mxGetNumberOfElements(selection) != mxGetNumberOfElements(image))
+      mexErrMsgIdAndTxt("weightedSumFilter:selection", "selection must have the same number of elements as image.");
+    isSelected                = (const bool*) mxGetData(selection);
+  }
+
 
   //---------------------------------------------------------------------------
 
@@ -121,6 +131,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   plhs[0]                     = filtered;
 
   // Create filter class and process
-  applyFilter<AdaptiveMedianFilter2D>(image, mxGetData(filtered), mask, numCategories, targetFracPixels);
+  applyFilter<AdaptiveMedianFilter2D>(image, mxGetData(filtered), isSelected, mask, numCategories, targetFracPixels);
 }
 
