@@ -33,7 +33,7 @@ public:
     pixelValues.clear();
   }
   
-  virtual void add(const Pixel& pixelValue, const int maskPixel)
+  virtual void add(const Pixel& pixelValue, const int maskPixel, const int /*targetPixel*/)
   {
     if (mask[maskPixel] && pixelValue == pixelValue)
       pixelValues.push_back(pixelValue);

@@ -57,7 +57,7 @@ public:
   virtual ~ImageFilter2D() { }
 
   virtual void clear() = 0;
-  virtual void add(const Pixel& pixelValue, const int maskPixel) = 0;
+  virtual void add(const Pixel& pixelValue, const int maskPixel, const int targetPixel) = 0;
   virtual Pixel compute() = 0;
 
 
@@ -92,7 +92,7 @@ public:
         clear();
         for (int mskCol = 0; mskCol < colBound[tgtCol]; ++mskCol) {
           for (int mskRow = 0; mskRow < rowBound[tgtRow]; ++mskRow) {
-            add(source[srcPix], mskPix);
+            add(source[srcPix], mskPix, tgtPix);
             ++srcPix;
             ++mskPix;
           }

@@ -124,7 +124,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   double                      minValue        =  1e308;
   double                      maxValue        = -1e308;
   double                      meanValue       = 0;
-  if (isIntegral || displayProgress)
+  if (displayProgress)
   {
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
       if (isEmpty[iFrame])    continue;
@@ -199,12 +199,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   for (int iShift = 0; iteration <= maxIter; ++iteration)
   {
     // Relative index at which the previous shifts were stored
-    const int                 iPrevX          = ( nlhs < 1 || iteration < 1 ? 0 : numFrames );
-    const int                 iPrevY          = ( nlhs < 2 || iteration < 1 ? 0 : numFrames );
+    const int                 iPrevX          = ( iteration < 2 ? 0 : numFrames );
+    const int                 iPrevY          = ( iteration < 2 ? 0 : numFrames );
 
     // Compute median image
     cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
     if (displayProgress)      imshowrange("Template", imgRef, showMin, showMax);
+    mexPrintf(" [%2d]          ", iteration);
 
 
     // Loop through frames and correct each one
@@ -214,14 +215,21 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
       imgStack[iFrame].convertTo(frmTemp, CV_32F, pixScale, pixShift);
       //if (displayProgress)    imshowrange("Image", frmTemp, showMin, showMax);
+      mexPrintf("\b\b\b\b\b\b\b\b\b%4d/%-4d", iFrame, numFrames);
+      //mexPrintf("  ");
+      //mexEvalString("drawnow");
 
       // Obtain metric values for all possible shifts and find the optimum
       cv::Point               optimum;
       cv::matchTemplate(frmTemp, imgRef, metric, methodCorr);
+      //mexPrintf("\b%s", "a");
+      //mexEvalString("drawnow");
       if (methodCorr == cv::TemplateMatchModes::TM_SQDIFF || methodCorr == cv::TemplateMatchModes::TM_SQDIFF_NORMED)
             cv::minMaxLoc(metric, NULL, NULL, &optimum, NULL    );
       else  cv::minMaxLoc(metric, NULL, NULL, NULL    , &optimum);
       dataCopier(metric, ptrMetric);
+      //mexPrintf("\b%s", "b");
+      //mexEvalString("drawnow");
 
 
       // If interpolation is desired, use a gaussian peak fit to resolve it
@@ -232,11 +240,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         &&  (optimum.y > 0)
         &&  (optimum.y < metric.rows-1)
          ) {
-        
+
+        //mexPrintf("\b%s", "c");
+        //mexEvalString("drawnow");
+
         // The following are the three rows centered at the optimum
         const float*          row0            = metric.ptr<float>(optimum.y - 1);
         const float*          row1            = metric.ptr<float>(optimum.y    );
         const float*          row2            = metric.ptr<float>(optimum.y + 1);
+        
+        //mexPrintf("\b%s", "d");
+        //mexEvalString("drawnow");
 
         // Precompute the log value once and for all
         const double          ln10            = log(row1[optimum.x - 1]);
@@ -244,6 +258,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         const double          ln12            = log(row1[optimum.x + 1]);
         const double          ln01            = log(row0[optimum.x    ]);
         const double          ln21            = log(row2[optimum.x    ]);
+        
+        //mexPrintf("\b%s", "e");
+        //mexEvalString("drawnow");
 
         // 1D Gaussian interpolation in each direction
         double                xPeak           = ( ln10 - ln12 ) / ( 2 * ln10 - 4 * ln11 + 2 * ln12 );
@@ -254,9 +271,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         yTrans[2]             = rowShift      = -( optimum.y - firstRefRow + yPeak );
 
         // Perform an affine transformation i.e. sub-pixel shift via interpolation
+        //mexPrintf("\b%s", "f");
+        //mexEvalString("drawnow");
         cv::warpAffine( frmTemp, imgShifted[iFrame], translator, frmTemp.size()
                       , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
                       );
+        //mexPrintf("\b%s", "g");
+        //mexEvalString("drawnow");
       }
 
       // In case of no sub-pixel interpolation, perform a simple (and fast) pixel shift
@@ -269,26 +290,38 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         //}
 
         // Remember that the template is offset so shifts are relative to that
+        //mexPrintf("\b%s", "h");
+        //mexEvalString("drawnow");
         colShift              = -( optimum.x - firstRefCol );
         rowShift              = -( optimum.y - firstRefRow );
         cvCall<CopyShiftedImage32>(imgShifted[iFrame], frmTemp, colShift, rowShift, emptyValue[0]);
+        //mexPrintf("\b%s", "i");
+        //mexEvalString("drawnow");
       }
 
       // Record history of shifts
+      //mexPrintf("\b%s", "j");
+      //mexEvalString("drawnow");
       maxRelShift             = std::max(maxRelShift, std::fabs(colShift - xShifts[iShift - iPrevX]));
       maxRelShift             = std::max(maxRelShift, std::fabs(rowShift - yShifts[iShift - iPrevY]));
+      //mexPrintf("\b%s", "k");
+      //mexEvalString("drawnow");
       xShifts[iShift]         = colShift;
       yShifts[iShift]         = rowShift;
-       
+      //mexPrintf("\b%s", "l");
+      //mexEvalString("drawnow");
+
 
       if (displayProgress)    imshowrange("Corrected", imgShifted[iFrame], showMin, showMax);
+      //mexPrintf("\b\b%s", "");
     } // end loop over frames
 
 
     // Stop if the maximum shift relative to the previous iteration is small enough
     if (maxRelShift < stopBelowShift)           break;
-    if (nlhs < 1)             iShift            = 0;
   } // end loop over iterations
+  mexPrintf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b%s", "");
+  mexEvalString("drawnow");
 
 
   //---------------------------------------------------------------------------

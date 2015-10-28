@@ -50,7 +50,7 @@ public:
     }
   }
   
-  virtual void add(const Pixel& pixelValue, const int maskPixel)
+  virtual void add(const Pixel& pixelValue, const int maskPixel, const int /*targetPixel*/)
   {
     if (category[maskPixel] < numCategories) {
       ++numPixels[category[maskPixel]];
@@ -66,7 +66,7 @@ public:
       for (size_t iPix = 0; iPix < categoryValues[iCat].size(); ++iPix)
         pixelValues.push_back(categoryValues[iCat][iPix]);
     
-      if (pixelValues.size() >= targetFracPixels * numPixels[iCat])
+      if (pixelValues.size() > targetFracPixels * numPixels[iCat])
         break;
     }
 
