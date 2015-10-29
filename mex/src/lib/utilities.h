@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cassert>
+#include <vector>
 
 
 template<typename Size, typename OutType, typename InType>
@@ -465,6 +466,102 @@ public:
       minimum         = other.minimum;
     if (other.maximum > maximum)
       maximum         = other.maximum;
+  }
+  ///@}
+};
+
+
+
+//-------------------------------------------------------------------------
+//    Statistics
+//-------------------------------------------------------------------------
+
+class ImageStatistics {
+protected:
+  const int               numPixels;
+  std::vector<size_t>     numEntries;
+  std::vector<double>     M2;
+  double*                 mean;
+  double*                 minimum;
+  double*                 maximum;
+
+public:
+  ImageStatistics(int numPixels, double* mean, double* minimum, double* maximum)
+    : numPixels  (numPixels    )
+    , numEntries (numPixels, 0 )
+    , M2         (numPixels, 0.)
+    , mean       (mean         )
+    , minimum    (minimum      )
+    , maximum    (maximum      )
+  {
+    for (int iPix = 0; iPix < numPixels; ++iPix) {
+      minimum[iPix] =  1e308;
+      maximum[iPix] = -1e308;
+    }
+  }
+
+
+  //---------------------------------------------------------------------------
+  /// @name   Interface
+  //---------------------------------------------------------------------------
+  ///@{
+public:
+  void  getMeanUncertainty    (double* out) const 
+  {
+    for (int iPix = 0; iPix < numPixels; ++iPix)
+      out[iPix]   = sqrt( numEntries[iPix] > 1 
+                        ? M2[iPix]/(numEntries[iPix]-1)
+                        / numEntries[iPix]
+                        : 0 
+                        );
+  }
+  void  getSampleVariance     (double* out) const
+  {
+    for (int iPix = 0; iPix < numPixels; ++iPix)
+      out[iPix] = numEntries[iPix] > 1 
+                ? M2[iPix] / (numEntries[iPix]-1)
+                : 0
+                ;
+  }
+
+  void  getPopulationVariance (double* out) const
+  {
+    for (int iPix = 0; iPix < numPixels; ++iPix)
+      out[iPix] = ( numEntries[iPix] > 1 ? M2[iPix]/numEntries[iPix] : 0 );
+  }
+
+  void  getRMS                (double* out) const
+  {
+    for (int iPix = 0; iPix < numPixels; ++iPix)
+      out[iPix] = sqrt( numEntries[iPix] > 1 
+                       ? M2[iPix]/(numEntries[iPix]-1)
+                       : 0 
+                       );
+  }
+  ///@}
+
+
+  //---------------------------------------------------------------------------
+  /// @name   Combination
+  //---------------------------------------------------------------------------
+  ///@{
+public:
+  template<typename Pixel>
+  void add(const Pixel* img, const bool* masked = 0)
+  {
+    for (int iPix = 0; iPix < numPixels; ++iPix)
+    {
+      if (masked && masked[iPix])   continue;
+      if (img[iPix] != img[iPix])   continue;
+
+      ++(numEntries[iPix]);
+      const double      delta   = img[iPix] - mean[iPix];
+      mean[iPix]       += delta / numEntries[iPix];
+      M2[iPix]         += delta * (img[iPix] - mean[iPix]);
+
+      if (img[iPix] < minimum[iPix])  minimum[iPix] = img[iPix];
+      if (img[iPix] > maximum[iPix])  maximum[iPix] = img[iPix];
+    }
   }
   ///@}
 };

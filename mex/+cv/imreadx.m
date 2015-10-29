@@ -1,4 +1,7 @@
 % IMREADX    Loads the given image stack into memory, applying row/column shifts (rigid translation) to each frame.
+  maxNumFrames = nan can be used to return only the statistics structure, which saves on memory load in 
+  case the image stack is very large. Note that the median image cannot be computed in this case because
+  it requires the full stack to be in memory.
 %
 %  If sub-pixel registration is requested, cv::warpAffine() is used.
 %  Usage syntax:
@@ -10,5 +13,6 @@
 %                                    , [nanMask = []]                                        ...
 %                                    );
 %
+%  Todo:   Binned median.
 %  Author:   Sue Ann Koay (koay@princeton.edu)
 %

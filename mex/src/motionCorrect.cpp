@@ -124,7 +124,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   double                      minValue        =  1e308;
   double                      maxValue        = -1e308;
   double                      meanValue       = 0;
-  if (displayProgress)
+  if (displayProgress || emptyIsMean)
   {
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
       if (isEmpty[iFrame])    continue;
@@ -142,22 +142,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   meanValue                  /= numFrames;
 
 
-  // For integer format data, precompute data range so that the temporary shifted 
-  // images can be scaled to use the full range; this helps with precision issues
-  // when sub-pixel registration is used. Also note that the minimum bit depth
-  // used is 16, since it is likely that an 8 bit representation will lead to
-  // severe truncation of sub-pixel shifts.
-
-  double                      pixScale, pixShift;
-  //if (isIntegral) {
-  //  pixScale                  = cvBitRange(scratchType) / (maxValue - minValue);
-  //  pixShift                  = -pixScale* minValue;
-  //} else {
-    pixScale                  = 1;
-    pixShift                  = 0;
-  //}
   for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
-    if (!isEmpty[iFrame])     imgStack[iFrame].convertTo(imgShifted[iFrame], scratchType, pixScale, pixShift);
+    if (!isEmpty[iFrame])     imgStack[iFrame].convertTo(imgShifted[iFrame], scratchType);
 
   // Translation matrix, for use with sub-pixel registration
   cv::Mat                     translator(2, 3, CV_32F);
@@ -173,7 +159,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // For display of images, predetermine a grayscale range
   double                      showMin, showMax;
-  if (displayProgress) {
+  if (displayProgress || emptyIsMean) {
     double                    variance        = 0;
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
       if (isEmpty[iFrame])    continue;
@@ -186,11 +172,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     meanValue                /= numFrames;
 
     const double              stddev          = sqrt(variance /= numFrames);
-    showMin                   = pixScale * std::max(minValue, meanValue - 3*stddev) + pixShift;
-    showMax                   = pixScale * std::min(maxValue, meanValue + 4*stddev) + pixShift;
+    showMin                   = std::max(minValue, meanValue - 3*stddev);
+    showMax                   = std::min(maxValue, meanValue + 4*stddev);
   }
   
-  const cv::Scalar            emptyValue( emptyIsMean ? pixScale * meanValue + pixShift : usrEmptyValue );
+  const cv::Scalar            emptyValue( emptyIsMean ? meanValue : usrEmptyValue );
 
   
   //---------------------------------------------------------------------------
@@ -206,6 +192,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
     if (displayProgress)      imshowrange("Template", imgRef, showMin, showMax);
     mexPrintf(" [%2d]          ", iteration);
+    mexEvalString("drawnow");
 
 
     // Loop through frames and correct each one
@@ -213,11 +200,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     float*                    ptrMetric       = stackMetric;
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame, ++iShift) 
     {
-      imgStack[iFrame].convertTo(frmTemp, CV_32F, pixScale, pixShift);
+      imgStack[iFrame].convertTo(frmTemp, CV_32F);
       //if (displayProgress)    imshowrange("Image", frmTemp, showMin, showMax);
-      mexPrintf("\b\b\b\b\b\b\b\b\b%4d/%-4d", iFrame, numFrames);
-      //mexPrintf("  ");
-      //mexEvalString("drawnow");
+
+      if (iFrame % 10 == 0) {
+        mexPrintf("\b\b\b\b\b\b\b\b\b%4d/%-4d", iFrame, numFrames);
+        //mexPrintf("  ");
+        mexEvalString("drawnow");
+      }
 
       // Obtain metric values for all possible shifts and find the optimum
       cv::Point               optimum;
@@ -329,8 +319,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Truncate shift arrays in case iterations are stopped before the max
   if (iteration < maxIter) {
-    mxSetN(outXShifts, iteration);
-    mxSetN(outYShifts, iteration);
+    //mxSetN(outXShifts, iteration);
+    //mxSetN(outYShifts, iteration);
   }
 
   // Compute median image one final time to store the reference image
@@ -378,6 +368,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Memory cleanup
-  mxFree(inputPath);
+  if (inputPath)
+    mxFree(inputPath);
 }
 

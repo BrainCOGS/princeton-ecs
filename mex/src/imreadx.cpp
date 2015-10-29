@@ -1,5 +1,8 @@
 /**
   Loads the given image stack into memory, applying row/column shifts (rigid translation) to each frame.
+  maxNumFrames = nan can be used to return only the statistics structure, which saves on memory load in 
+  case the image stack is very large. Note that the median image cannot be computed in this case because
+  it requires the full stack to be in memory.
  
   If sub-pixel registration is requested, cv::warpAffine() is used.
   Usage syntax:
@@ -11,6 +14,7 @@
                                     , [nanMask = []]                                        ...
                                     );
 
+  Todo:   Binned median.
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
 
@@ -45,8 +49,10 @@ public:
     , methodResize  (0)
     , nanMask       (0)
     , nFramePixels  (0)
+    , frameOffset   (0)
     , emptyNSigmas  (5)
     , emptyProb     (-999)
+    , stackStats    (0)
     , offset        (0)
     , maxZeroValue  (std::numeric_limits<double>::infinity())
     , numFrames     (0)
@@ -99,9 +105,11 @@ public:
 
       // Special case where the entire frame should be set to NaN
       if (isEmpty) {
-        static const Pixel      nan     = static_cast<Pixel>( mxGetNaN() );
-        for (int iPix = 0; iPix < nFramePixels; ++iPix, ++imgData)
-          *imgData              = nan;
+        if (frameOffset > 0) {  // Only required in case of storing data
+          static const Pixel    nan     = static_cast<Pixel>( mxGetNaN() );
+          for (int iPix = 0; iPix < nFramePixels; ++iPix, ++imgData)
+            *imgData            = nan;
+        }
 
         // Move on to next shift if they have been provided
         if (xShift) {
@@ -154,45 +162,59 @@ public:
 
 
     //---------------------------------------------------------------------------
-    //  Special case for one-shot masking and resize
+    //  One-shot masking and resize
     //---------------------------------------------------------------------------
 
     // For area interpolation, can directly write to output since this is the last operation
     if (methodResize == cv::InterpolationFlags::INTER_AREA)
-    {
       cvTypeCall<ImageCondenser2D, Pixel>(*source, imgData, condenser, offset, nanMask, emptyPix);
-      imgData                += nFramePixels;
-      return true;
-    }
 
-    //---------------------------------------------------------------------------
-    //  Apply mask
-    //---------------------------------------------------------------------------
 
-    if (nanMask) {
-      target->convertTo(frmClone, CV_32F);
-      cvCall<MaskPixels>(frmClone, nanMask, emptyPix);
-      target                  = &frmClone;
-    } // apply mask
+    //-------------------------------------------------------------------------
+    //  Apply mask only
+    //-------------------------------------------------------------------------
+
+    else if (methodResize <= 0)
+      cvCall<MatToMatlab32>(*source, imgData, offset, nanMask, emptyPix);
 
 
     //---------------------------------------------------------------------------
-    //  Resize
+    //  Mask and resize (but does not ignore nan)
     //---------------------------------------------------------------------------
 
     // No support for other type of resizing methods; use default functions regardless of ability to ignore nan
-    if (methodResize >= 0) {
+    else {
+      if (nanMask) {
+        target->convertTo(frmClone, CV_32F);
+        cvCall<MaskPixels>(frmClone, nanMask, emptyPix);
+        target                = &frmClone;
+      } // apply mask
+
       cv::resize(*source, *target, cv::Size(), xScale, yScale, methodResize);
 
       // Set source for the next operation
       source                  = target;
+
+
+      // Copy to Matlab
+      cvCall<MatToMatlab32>(*source, imgData, offset);
     } // resize
 
-   
+
+
     //---------------------------------------------------------------------------
-    //  Copy to Matlab
+    //  Compute image statistics
     //---------------------------------------------------------------------------
-    cvCall<MatToMatlab32>(*source, imgData, offset);
+
+    if (stackStats)
+      stackStats->add(imgData);
+
+
+    //---------------------------------------------------------------------------
+    //  Advance write pointer
+    //---------------------------------------------------------------------------
+
+    imgData                  += frameOffset;
 
     return true;
   }
@@ -214,9 +236,11 @@ public:
   CondenserInfo2D*    condenser;
 
   int                 nFramePixels;
+  int                 frameOffset;
   double              emptyNSigmas;
   double              emptyProb;
   
+  ImageStatistics*    stackStats;
   SampleStatistics    statistics;
   Pixel               offset;
   double              maxZeroValue;
@@ -262,6 +286,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   
   // Parse input
+  const bool                  computeStats            = ( nlhs > 1 );
+  const bool                  computeMedian           = ( nlhs > 2 );
   ImageProcessor<float>       processor;
                               processor.xShift        = ( nrhs >  1 && !mxIsEmpty(prhs[1]) ) ?     mxGetPr(prhs[1])           : 0     ;
                               processor.yShift        = ( nrhs >  2 && !mxIsEmpty(prhs[2]) ) ?     mxGetPr(prhs[2])           : 0     ;
@@ -269,6 +295,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                               processor.yScale        = ( nrhs >  4 && !mxIsEmpty(prhs[4]) ) ?     mxGetScalar(prhs[4])       : -999  ;
                               processor.maxNumFrames  = ( nrhs >  5 && !mxIsEmpty(prhs[5]) && mxIsFinite(mxGetScalar(prhs[5])) ) 
                                                                           ? cv::saturate_cast<int>(mxGetScalar(prhs[5]))      : std::numeric_limits<int>::max();
+  const bool                  storeStack              = !mxIsNaN(mxGetScalar(prhs[5]));
                               processor.emptyProb     = ( nrhs >  6 ?                              mxGetScalar(prhs[6])       : -999  );
                               processor.subtractZero  = ( nrhs >  7 ?                             (mxGetScalar(prhs[7]) > 0)  : false );
   const mxArray*              nanMask                 = ( nrhs >  8 ?                                          prhs[8]        : 0     );
@@ -280,8 +307,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mexErrMsgIdAndTxt( "imreadx:load", "If xShift is provided, yShift must be provided as well, and vice versa.");
   if ((processor.xScale <= 0) != (processor.yScale <= 0))
     mexErrMsgIdAndTxt( "imreadx:load", "If xScale is provided, yScale must be provided as well, and vice versa.");
-  if (processor.xScale <= 0)
+  if (processor.xScale <= 0 || (processor.xScale == 1 && processor.yScale == 1))
     processor.methodResize    = -1;
+  if (computeMedian && !storeStack)
+    mexErrMsgIdAndTxt( "imreadx:arguments", "Median cannot be computed unless image stack is loaded into memory (maxNumFrames > 0).");
 
   if (nanMask) {
     if (!mxIsLogical(nanMask))
@@ -316,13 +345,33 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     imgHeight                 = cvRound(imgHeight * processor.yScale);
     processor.condenser       = new CondenserInfo2D(srcWidth, srcHeight, imgWidth, imgHeight);
   }
+  processor.nFramePixels      = imgHeight * imgWidth;
 
   //---------------------------------------------------------------------------
   // Create output structure
-  size_t                      dimension[]     = {imgHeight, imgWidth, numFrames};
-  plhs[0]                     = mxCreateNumericArray(3, dimension, mxSINGLE_CLASS, mxREAL);
-  processor.nFramePixels      = imgHeight * imgWidth;
+  if (storeStack) {
+    size_t                    dimension[]     = {imgHeight, imgWidth, numFrames};
+    plhs[0]                   = mxCreateNumericArray(3, dimension, mxSINGLE_CLASS, mxREAL);
+    processor.frameOffset     = processor.nFramePixels;
+  } else {
+    plhs[0]                   = mxCreateNumericMatrix(imgHeight, imgWidth, mxSINGLE_CLASS, mxREAL);
+    processor.frameOffset     = 0;
+  }
   processor.imgData           = (float*) mxGetData(plhs[0]);
+
+
+  mxArray*                    imgMin          = 0;
+  mxArray*                    imgMax          = 0;
+  mxArray*                    imgMean         = 0;
+  mxArray*                    imgStd          = 0;
+  if (computeStats) {
+    imgMin                    = mxCreateDoubleMatrix(imgHeight, imgWidth, mxREAL);
+    imgMax                    = mxCreateDoubleMatrix(imgHeight, imgWidth, mxREAL);
+    imgMean                   = mxCreateDoubleMatrix(imgHeight, imgWidth, mxREAL);
+    imgStd                    = mxCreateDoubleMatrix(imgHeight, imgWidth, mxREAL);
+    processor.stackStats      = new ImageStatistics( processor.nFramePixels, mxGetPr(imgMean), mxGetPr(imgMin), mxGetPr(imgMax) );
+  }
+
 
   // Check that we have enough frame shifts
   if (processor.xShift) {
@@ -340,29 +389,40 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   else {
     mexPrintf("       ");
     for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
-      if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED))
-        break;
       mexPrintf("\b\b\b\b\b\b\b%3d/%-3d", iIn+1, inputPath.size());
       mexEvalString("drawnow");
+      if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED))
+        break;
     }
-    mexPrintf("\n");
+    mexPrintf("\b\b\b\b\b\b\b%s", "");
+    mexEvalString("drawnow");
   }
 
 
   // Return statistics structure if so requested
-  if (nlhs > 1) {
+  if (computeStats) {
+    processor.stackStats->getRMS(mxGetPr(imgStd));
+
     static const char*        STAT_FIELDS[]   = { "zeroLevel"
                                                 , "zeroNoise"
                                                 , "zeroThreshold"
+                                                , "min"
+                                                , "max"
+                                                , "mean"
+                                                , "std"
                                                 };
-    plhs[1]                   = mxCreateStructMatrix(1, 1, 3, STAT_FIELDS);
+    plhs[1]                   = mxCreateStructMatrix(1, 1, 7, STAT_FIELDS);
     mxSetField(plhs[1], 0, "zeroLevel"    , mxCreateDoubleScalar(processor.statistics.getMean()));
     mxSetField(plhs[1], 0, "zeroNoise"    , mxCreateDoubleScalar(processor.statistics.getRMS()));
     mxSetField(plhs[1], 0, "zeroThreshold", mxCreateDoubleScalar(processor.maxZeroValue));
+    mxSetField(plhs[1], 0, "min"          , imgMin );
+    mxSetField(plhs[1], 0, "max"          , imgMax );
+    mxSetField(plhs[1], 0, "mean"         , imgMean);
+    mxSetField(plhs[1], 0, "std"          , imgStd );
   }
 
   // Compute median if so requested
-  if (nlhs > 2) {
+  if (computeMedian) {
     std::vector<float>        traceTemp(numFrames);
     plhs[2]                   = mxCreateNumericMatrix(imgHeight, imgWidth, mxSINGLE_CLASS, mxREAL);
     float*                    medData         = (float*) mxGetData(plhs[2]);
@@ -397,4 +457,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   if (processor.condenser)
     delete processor.condenser;
+  if (processor.stackStats)
+    delete processor.stackStats;
 }

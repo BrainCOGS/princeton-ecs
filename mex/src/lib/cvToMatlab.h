@@ -16,21 +16,22 @@
 template<typename Pixel>
 struct MatToMatlab32
 {
-  void operator()(const cv::Mat& image, float*& dataPtr, float offset = 0)
+  void operator()(const cv::Mat& image, float* dataPtr, float offset = 0, const bool* masked = 0, float emptyValue = 0)
   {
     // Loop over each pixel in the image 
     for (int iRow = 0; iRow < image.rows; ++iRow) {
       const Pixel*    pixRow      = image.ptr<Pixel>(iRow);
-      for (int iCol = 0; iCol < image.cols; ++iCol) {
-        dataPtr[iCol*image.rows]  = static_cast<float>( pixRow[iCol] ) - offset;
+      for (int iCol = 0, iPix = 0; iCol < image.cols; ++iCol, iPix += image.rows) {
+        dataPtr[iPix] = ( masked && masked[iPix] )
+                        ? emptyValue
+                        : static_cast<float>( pixRow[iCol] ) - offset
+                        ;
       } // end loop over columns
       
       // Write next row
       ++dataPtr;
+      if (masked)   ++masked;
     } // end loop over rows
-
-    // Set write pointer to the end of the written data
-    dataPtr          += image.rows * (image.cols - 1);
   }
 };
 
