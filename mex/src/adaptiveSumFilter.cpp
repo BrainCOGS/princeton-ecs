@@ -36,7 +36,7 @@ public:
     sumWeight     = 0;
   }
   
-  virtual void add(const Pixel& pixelValue, const int weightPixel, const int targetPixel)
+  virtual void add(const Pixel& pixelValue, const int weightPixel, const int /*sourcePixel*/, const int targetPixel)
   {
     const double      tgtWeight   = weight[weightPixel + targetPixel*maskOffset];
     if (tgtWeight == tgtWeight && pixelValue == pixelValue) {

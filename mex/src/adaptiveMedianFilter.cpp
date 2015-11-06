@@ -50,7 +50,7 @@ public:
     }
   }
   
-  virtual void add(const Pixel& pixelValue, const int maskPixel, const int /*targetPixel*/)
+  virtual void add(const Pixel& pixelValue, const int maskPixel, const int /*sourcePixel*/, const int /*targetPixel*/)
   {
     if (category[maskPixel] < numCategories) {
       ++numPixels[category[maskPixel]];
