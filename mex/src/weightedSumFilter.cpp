@@ -1,8 +1,10 @@
 /**
-  Computes a median filtered image using a selection mask to select pixels to include. NaN-valued pixels are ignored.
+  Computes a median filtered image using a selection mask to select pixels to include. 
 
   Usage syntax:
-    filtered  = ecs.weightedSumFilter(image, weight, masked, isSelected);
+    filtered  = ecs.weightedSumFilter(image, weight, [masked = []], [isSelected = []], [minWeight = 0], [emptyValue = nan]);
+
+  NaN-valued pixels are ignored.
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -21,12 +23,19 @@ protected:
   const bool*         masked;
   double              sumPixels;
   double              sumWeight;
+  const double        minWeight;
+  const Pixel         emptyValue;
 
 public:
-  WeightedSumFilter2D(const int imageWidth, const int imageHeight, const mxArray* matWeight, const bool* masked)
+  WeightedSumFilter2D ( const int imageWidth, const int imageHeight
+                      , const mxArray* matWeight, const bool* masked
+                      , const double minWeight, const Pixel emptyValue
+                      )
     : ImageFilter2D (imageWidth, imageHeight, static_cast<int>(mxGetN(matWeight)), static_cast<int>(mxGetM(matWeight)))
     , weight        (mxGetPr(matWeight))
     , masked        (masked)
+    , minWeight     (minWeight)
+    , emptyValue    (emptyValue)
   {
   }
 
@@ -49,7 +58,7 @@ public:
   
   virtual Pixel compute()
   {
-    return static_cast<Pixel>( sumWeight > 0 ? sumPixels / sumWeight : 0 );
+    return static_cast<Pixel>( sumWeight > minWeight ? sumPixels / sumWeight : emptyValue );
   }
 };
 
@@ -63,7 +72,7 @@ public:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nlhs != 1 || nrhs < 2 || nrhs > 4) {
+  if (nlhs != 1 || nrhs < 2 || nrhs > 6) {
     mexEvalString("help ecs.weightedSumFilter");
     mexErrMsgIdAndTxt ( "weightedSumFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -72,8 +81,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Parse input
   const mxArray*              image         =                                   prhs[0];
   const mxArray*              weight        =                                   prhs[1];
-  const mxArray*              masked        = nrhs > 2 && !mxIsEmpty(prhs[2]) ? prhs[2] : 0;
-  const mxArray*              selection     = nrhs > 3 && !mxIsEmpty(prhs[3]) ? prhs[3] : 0;
+  const mxArray*              masked        = nrhs > 2 && !mxIsEmpty(prhs[2]) ? prhs[2]  : 0;
+  const mxArray*              selection     = nrhs > 3 && !mxIsEmpty(prhs[3]) ? prhs[3]  : 0;
+  const double                minWeight     = nrhs > 4            ? mxGetScalar(prhs[4]) : 0;
+  const double                emptyValue    = nrhs > 5            ? mxGetScalar(prhs[5]) : mxGetNaN();
 
   if (mxGetNumberOfDimensions(image) != 2)
     mexErrMsgIdAndTxt("weightedSumFilter:image", "Only 2D images are supported for now.");
@@ -117,6 +128,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   plhs[0]                     = filtered;
 
   // Create filter class and process
-  applyFilter<WeightedSumFilter2D>(image, mxGetData(filtered), isSelected, weight, isMasked);
+  applyFilter<WeightedSumFilter2D>(image, mxGetData(filtered), isSelected, weight, isMasked, minWeight, emptyValue);
 }
 

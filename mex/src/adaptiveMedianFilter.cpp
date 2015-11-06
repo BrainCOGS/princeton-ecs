@@ -2,7 +2,7 @@
   Computes a median filtered image using a mask to select pixels to include. NaN-valued pixels are ignored.
 
   Usage syntax:
-    filtered  = ecs.adaptiveMedianFilter(image, category, numCategories, targetFracPixels, isSelected);
+    filtered  = ecs.adaptiveMedianFilter(image, category, numCategories, targetFracPixels, [isSelected = []], [emptyValue = nan]);
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -23,15 +23,21 @@ protected:
   std::vector<Pixel>*   categoryValues;
   std::vector<size_t>   numPixels;
   std::vector<Pixel>    pixelValues;
+  const Pixel           emptyValue;
 
 public:
-  AdaptiveMedianFilter2D(const int imageWidth, const int imageHeight, const mxArray* matCategory, const int numCategories, const double targetFracPixels)
+  AdaptiveMedianFilter2D( const int imageWidth, const int imageHeight
+                        , const mxArray* matCategory, const int numCategories
+                        , const double targetFracPixels
+                        , const Pixel emptyValue
+                        )
     : ImageFilter2D   (imageWidth, imageHeight, static_cast<int>(mxGetN(matCategory)), static_cast<int>(mxGetM(matCategory)))
     , numCategories   (numCategories)
     , targetFracPixels(targetFracPixels)
     , category        ((const int*) mxGetData(matCategory))
     , categoryValues  (new std::vector<Pixel>[numCategories])
     , numPixels       (numCategories)
+    , emptyValue      (emptyValue)
   {
     for (size_t iCat = 0; iCat < numCategories; ++iCat)
       categoryValues[iCat].reserve(maskHeight * maskWidth);
@@ -67,10 +73,10 @@ public:
         pixelValues.push_back(categoryValues[iCat][iPix]);
     
       if (pixelValues.size() > targetFracPixels * numPixels[iCat])
-        break;
+        return static_cast<Pixel>( quickSelect(pixelValues) );
     }
 
-    return static_cast<Pixel>( quickSelect(pixelValues) );
+    return emptyValue;
   }
 };
 
@@ -84,7 +90,7 @@ public:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nlhs != 1 || nrhs < 4 || nrhs > 5) {
+  if (nlhs != 1 || nrhs < 4 || nrhs > 6) {
       mexEvalString("help ecs.adaptiveMedianFilter");
     mexErrMsgIdAndTxt ( "adaptiveMedianFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -96,6 +102,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const int                   numCategories     = static_cast<int>( mxGetScalar(prhs[2]) );
   const double                targetFracPixels  = mxGetScalar(prhs[3]);
   const mxArray*              selection         = nrhs > 4 ? prhs[4] : 0;
+  const double                emptyValue        = nrhs > 5 ? mxGetScalar(prhs[5]) : mxGetNaN();
 
 
   if (mxGetNumberOfDimensions(image) != 2)
@@ -131,6 +138,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   plhs[0]                     = filtered;
 
   // Create filter class and process
-  applyFilter<AdaptiveMedianFilter2D>(image, mxGetData(filtered), isSelected, mask, numCategories, targetFracPixels);
+  applyFilter<AdaptiveMedianFilter2D>(image, mxGetData(filtered), isSelected, mask, numCategories, targetFracPixels, emptyValue);
 }
 
