@@ -9,19 +9,15 @@
 /**
   Display an equalized image.
 */
-void imshoweq(const std::string& winname, const cv::Mat& image, const int waitMS)
+void imshoweq(const std::string& winname, const cv::Mat& image, const double offset, const int waitMS)
 {
-  double                minValue, maxValue;
-  cv::minMaxLoc(image, &minValue, &maxValue);
-
-  double                scale   = 255. / (maxValue - minValue);
-  if (scale != scale)   scale   = 1;
+  static cv::Ptr<cv::CLAHE>   clahe   = cv::createCLAHE();
+  static cv::Mat              imgTemp;
+  static cv::Mat              imgDisplay;
+  image.convertTo(imgTemp, CV_16U, 1, offset);
+  clahe->apply(imgTemp, imgDisplay);
   
-  cv::Mat               imgDisplay;
-  image.convertTo(imgDisplay, CV_8U, scale, -scale*minValue);
-  cv::equalizeHist(imgDisplay, imgDisplay);
   cv::imshow(winname, imgDisplay);
-
   if (waitMS >= 0)
     cv::waitKey(waitMS);
 }

@@ -30,7 +30,7 @@ struct MedianVecMat32
                 && (median.rows       <= stack[0].rows - firstRow)
                 && (median.cols       <= stack[0].cols - firstCol)
                 && (median.type()     == CV_32F)
-                && (traceTemp.size()  == stack.size())
+                && (traceTemp.size()  >= stack.size())
                 );
 
     // Temporary storage

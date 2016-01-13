@@ -12,17 +12,17 @@
 /**
   Display an equalized image.
 */
-void imshoweq(const std::string& winname, const cv::Mat& image, const int waitMS = 1);
+void imshoweq(const std::string& winname, const cv::Mat& image, const double offset = 0, const int waitMS = -9);
 
 /**
   Display a scaled image, with pixels transformed as \alpha \times x + \beta.
 */
-void imshowsc(const std::string& winname, const cv::Mat& image, const double alpha, const double beta, const int waitMS = 1);
+void imshowsc(const std::string& winname, const cv::Mat& image, const double alpha, const double beta, const int waitMS = -9);
 
 /**
   Display an image scaled so that minValue corresponds to black and maxValue to white.
 */
-void imshowrange(const std::string& winname, const cv::Mat& image, const double minValue, const double maxValue, const int waitMS = 1);
+void imshowrange(const std::string& winname, const cv::Mat& image, const double minValue, const double maxValue, const int waitMS = -9);
 
 
 /**
@@ -313,7 +313,6 @@ void cvCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& 
 //=============================================================================
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -336,7 +335,6 @@ void cvTypeCall(Image& image)
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -359,7 +357,6 @@ void cvTypeCall(Image& image, Arg1& arg1)
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -382,7 +379,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2)
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -405,7 +401,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3)
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -428,7 +423,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4)
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -451,7 +445,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Ar
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -474,7 +467,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Ar
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -497,7 +489,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Ar
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -520,7 +511,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Ar
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -543,7 +533,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Ar
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -566,7 +555,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Ar
 }
 
 /**
-  Convenience function to deduce the data type given the bit depth of an image.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -591,7 +579,6 @@ void cvTypeCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Ar
 //=============================================================================
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -617,7 +604,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1)
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -643,7 +629,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2)
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -669,7 +654,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -695,7 +679,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -721,7 +704,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -747,7 +729,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -773,7 +754,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -799,7 +779,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -825,7 +804,6 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
 }
 
 /**
-  Convenience function to deduce the data type of both a cv::Mat and a Matlab object.
   TFunctor should be a template class with operator() defined; the latter will
   be called with image as an argument.
 */
@@ -847,6 +825,250 @@ void cvMatlabCall(Image& image, const mxClassID classID, Arg1& arg1, Arg2& arg2,
   case mxINT64_CLASS  :   cvTypeCall<TFunctor, int64 >(image, dataType = CV_64F, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
   case mxUINT64_CLASS :   cvTypeCall<TFunctor, uint64>(image, dataType = CV_64F, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
   default:                mexErrMsgIdAndTxt("cvMatlabCall:classID", "Unsupported class ID %d.", classID);                    break;
+  }
+}
+
+
+
+//=============================================================================
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1>
+void matlabCall(Image& image, Arg1& arg1)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3, arg4);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3, arg4);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3, arg4);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3, arg4);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& arg5)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3, arg4, arg5);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& arg5, Arg6& arg6)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3, arg4, arg5, arg6);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6, typename Arg7>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& arg5, Arg6& arg6, Arg7& arg7)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6, typename Arg7, typename Arg8>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& arg5, Arg6& arg6, Arg7& arg7, Arg8& arg8)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6, typename Arg7, typename Arg8, typename Arg9>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& arg5, Arg6& arg6, Arg7& arg7, Arg8& arg8, Arg9& arg9)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
+  }
+}
+
+/**
+TFunctor should be a template class with operator() defined; the latter will
+be called with image as an argument.
+*/
+template<template<typename> class TFunctor, typename Image, typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6, typename Arg7, typename Arg8, typename Arg9, typename Arg10>
+void matlabCall(Image& image, Arg1& arg1, Arg2& arg2, Arg3& arg3, Arg4& arg4, Arg5& arg5, Arg6& arg6, Arg7& arg7, Arg8& arg8, Arg9& arg9, Arg10& arg10)
+{
+  switch (mxGetClassID(image)) {
+  case mxSINGLE_CLASS :   TFunctor<float >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxLOGICAL_CLASS:   TFunctor<bool  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxCHAR_CLASS   :   TFunctor<char  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxDOUBLE_CLASS :   TFunctor<double>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxINT8_CLASS   :   TFunctor<schar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxUINT8_CLASS  :   TFunctor<uchar >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxINT16_CLASS  :   TFunctor<short >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxUINT16_CLASS :   TFunctor<ushort>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxINT32_CLASS  :   TFunctor<int   >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxUINT32_CLASS :   TFunctor<uint  >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxINT64_CLASS  :   TFunctor<int64 >()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  case mxUINT64_CLASS :   TFunctor<uint64>()(image, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);    break;
+  default:                mexErrMsgIdAndTxt("matlabCall:mxGetClassID(image)", "Unsupported class ID %d.", mxGetClassID(image));                    break;
   }
 }
 

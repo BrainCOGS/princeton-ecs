@@ -1,12 +1,8 @@
 /**
   Loads the given image stack into memory, applying row/column shifts (rigid translation) to each frame.
-  maxNumFrames = nan can be used to return only the statistics structure, which saves on memory load in 
-  case the image stack is very large. Note that the median image cannot be computed in this case because
-  it requires the full stack to be in memory.
- 
-  If sub-pixel registration is requested, cv::warpAffine() is used.
+
   Usage syntax:
-    [image, stats, median] = imreadx( inputPath, xShift, yShift                             ...
+    [image, stats, median] = imreadx( inputPath, [xShift = []], [yShift = []]               ...
                                     , [xScale = 1], [yScale = 1], [maxNumFrames = inf]      ...
                                     , [blackTolerance = nan], [subtractZero = false]        ...
                                     , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]  ...
@@ -14,7 +10,13 @@
                                     , [nanMask = []]                                        ...
                                     );
 
-  Todo:   Binned median.
+  maxNumFrames = nan can be used to return only the statistics structure, which saves on memory load in 
+  case the image stack is very large. Note that the median image cannot be computed in this case because
+  it requires the full stack to be in memory.
+ 
+  If sub-pixel registration is requested, cv::warpAffine() is used.
+
+  Todo:     Binned median.
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
 
@@ -43,7 +45,7 @@ public:
     , yShift        (0)
     , xScale        (0)
     , yScale        (0)
-    , maxNumFrames  (0)
+    , maxNumFrames  (std::numeric_limits<int>::max())
     , subtractZero  (false)
     , methodInterp  (0)
     , methodResize  (0)
@@ -175,7 +177,7 @@ public:
     //-------------------------------------------------------------------------
 
     else if (methodResize <= 0)
-      cvCall<MatToMatlab32>(*source, imgData, offset, nanMask, emptyPix);
+      cvMatlabCall<MatToMatlab>(*source, imgClass, imgData, offset, nanMask, emptyPix);
 
 
     //---------------------------------------------------------------------------
@@ -197,7 +199,7 @@ public:
 
 
       // Copy to Matlab
-      cvCall<MatToMatlab32>(*source, imgData, offset);
+      cvMatlabCall<MatToMatlab>(*source, imgClass, imgData, offset);
     } // resize
 
 
@@ -223,6 +225,7 @@ public:
 public:
   cv::Mat             frmClone;
   cv::Mat             frmTemp ;
+  mxClassID           imgClass;
   Pixel*              imgData;
   double*             xShift;
   double*             yShift;
@@ -254,6 +257,30 @@ protected:
   const cv::Scalar    emptyValue;
 };
 
+
+//_________________________________________________________________________
+void checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int firstFrame, const int numFrames, const char* name)
+{
+  const int           numRows     = mxGetM(matShifts);
+  const int           numCols     = mxGetN(matShifts);
+  const int           numShifts   = mxGetNumberOfElements(matShifts);
+
+  if (numCols > 1 || numRows > 1) {
+    if (numRows - firstFrame < numFrames)
+      mexErrMsgIdAndTxt( "imreadx:shifts", "Number of %s rows (%d) is less than the number of frames (%d) in this image stack.", name, numShifts, numFrames);
+    else {
+      ptrShifts      += firstFrame + (numCols - 1) * numRows;
+      if (numCols > 1)
+        mexWarnMsgIdAndTxt( "imreadx:shifts", "Multiple columns (%d) of %s provided. Will use last column for corrections.", numCols, name);
+    }
+  }
+
+  else if (numRows - firstFrame < numFrames)
+    mexErrMsgIdAndTxt( "imreadx:shifts", "Number of %s (%d) is less than the number of frames (%d) in this image stack.", name, numShifts, numFrames);
+
+  else
+    ptrShifts        += firstFrame;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -293,15 +320,36 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                               processor.yShift        = ( nrhs >  2 && !mxIsEmpty(prhs[2]) ) ?     mxGetPr(prhs[2])           : 0     ;
                               processor.xScale        = ( nrhs >  3 && !mxIsEmpty(prhs[3]) ) ?     mxGetScalar(prhs[3])       : -999  ;
                               processor.yScale        = ( nrhs >  4 && !mxIsEmpty(prhs[4]) ) ?     mxGetScalar(prhs[4])       : -999  ;
-                              processor.maxNumFrames  = ( nrhs >  5 && !mxIsEmpty(prhs[5]) && mxIsFinite(mxGetScalar(prhs[5])) ) 
-                                                                          ? cv::saturate_cast<int>(mxGetScalar(prhs[5]))      : std::numeric_limits<int>::max();
-  const bool                  storeStack              = !mxIsNaN(mxGetScalar(prhs[5]));
+  const bool                  storeStack              = ( nrhs <= 5 || !mxIsNaN(mxGetScalar(prhs[5])) );
                               processor.emptyProb     = ( nrhs >  6 ?                              mxGetScalar(prhs[6])       : -999  );
                               processor.subtractZero  = ( nrhs >  7 ?                             (mxGetScalar(prhs[7]) > 0)  : false );
   const mxArray*              nanMask                 = ( nrhs >  8 ?                                          prhs[8]        : 0     );
                               processor.methodInterp  = ( nrhs >  9 ? int( mxGetScalar(prhs[ 9]) ) : cv::InterpolationFlags::INTER_LINEAR );
                               processor.methodResize  = ( nrhs > 10 ? int( mxGetScalar(prhs[10]) ) : cv::InterpolationFlags::INTER_AREA   );
-  
+
+  int                         firstFrame              = 0;
+  if (nrhs > 5) {
+    switch (mxGetNumberOfElements(prhs[5])) {
+    case 0:
+      break;
+    case 1:
+      if (mxIsFinite(mxGetScalar(prhs[5])))
+        processor.maxNumFrames= cv::saturate_cast<int>(mxGetScalar(prhs[5]));
+      break;
+    case 2:
+      {
+        const double*         frameRange              = mxGetPr(prhs[5]);
+        firstFrame            = cv::saturate_cast<int>(frameRange[0]) - 1;
+        processor.maxNumFrames= cv::saturate_cast<int>(frameRange[1]) - firstFrame;
+      }
+      break;
+    default:
+      mexErrMsgIdAndTxt( "imreadx:arguments", "maxNumFrames must be a scalar or a range [min,max].");
+    }
+  }
+
+
+
   // Sanity checks
   if ((processor.xShift == 0) != (processor.yShift == 0))
     mexErrMsgIdAndTxt( "imreadx:load", "If xShift is provided, yShift must be provided as well, and vice versa.");
@@ -330,7 +378,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (numFrames >= processor.maxNumFrames)  break;
   }
   if (numFrames < processor.maxNumFrames)
-    processor.maxNumFrames    = numFrames;    // in case there are not enough available
+    processor.maxNumFrames    = numFrames;                // in case there are not enough available
+  else if (numFrames > processor.maxNumFrames)
+    numFrames                 = processor.maxNumFrames;   // user request to stop at a certain number
 
   // Ensure proper size of masks
   if (nanMask && (mxGetM(nanMask) != srcHeight || mxGetN(nanMask) != srcWidth))
@@ -357,6 +407,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     plhs[0]                   = mxCreateNumericMatrix(imgHeight, imgWidth, mxSINGLE_CLASS, mxREAL);
     processor.frameOffset     = 0;
   }
+  processor.imgClass          = mxGetClassID(plhs[0]);
   processor.imgData           = (float*) mxGetData(plhs[0]);
 
 
@@ -375,24 +426,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Check that we have enough frame shifts
   if (processor.xShift) {
-    if (mxGetNumberOfElements(prhs[1]) < numFrames)
-      mexErrMsgIdAndTxt( "imreadx:load", "Number of xShift (%d) is less than the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[1]), numFrames);
-    if (mxGetNumberOfElements(prhs[2]) < numFrames)
-      mexErrMsgIdAndTxt( "imreadx:load", "Number of yShift (%d) is less than the number of frames (%d) in this image stack.", mxGetNumberOfElements(prhs[2]), numFrames);
+    checkNumShifts(prhs[1], processor.xShift, firstFrame, numFrames, "xShift");
+    checkNumShifts(prhs[2], processor.yShift, firstFrame, numFrames, "yShift");
   }
 
   //---------------------------------------------------------------------------
   // Call the stack processor
   if (inputPath.size() == 1) {
-    cv::imreadmulti(inputPath[0], &processor, cv::ImreadModes::IMREAD_UNCHANGED);
+    cv::imreadmulti(inputPath[0], &processor, cv::ImreadModes::IMREAD_UNCHANGED, firstFrame);
   }
   else {
     mexPrintf("       ");
     for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
       mexPrintf("\b\b\b\b\b\b\b%3d/%-3d", iIn+1, inputPath.size());
       mexEvalString("drawnow");
-      if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED))
+      if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED, firstFrame))
         break;
+      firstFrame              = 0;
     }
     mexPrintf("\b\b\b\b\b\b\b%s", "");
     mexEvalString("drawnow");
@@ -428,7 +478,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     float*                    medData         = (float*) mxGetData(plhs[2]);
 
     // Loop over each pixel in the image stack
-    const float*              pixCol          = processor.imgData;
+    const float*              pixCol          = (float*) mxGetData(plhs[0]);
     for (size_t iCol = 0; iCol < imgWidth; ++iCol) {
       for (size_t iRow = 0; iRow < imgHeight; ++iRow) {
         // Copy the stack of pixels into temporary storage
