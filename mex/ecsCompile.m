@@ -274,9 +274,10 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
     try
       mex('-outdir', outDir, options{:}, srcFile(iFile).name);
     catch err
-      close(hWait);
-      fprintf('\n\nSTOPPED due to compilation error.\n\n');
-      rethrow(err);
+      displayException(err);
+%       close(hWait);
+%       fprintf('\n\nSTOPPED due to compilation error.\n\n');
+%       rethrow(err);
     end
     
     % Generate an m-file if so requested

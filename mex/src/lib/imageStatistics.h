@@ -80,6 +80,13 @@ struct AccumulateMatStatistics
       } // end loop over columns
     } // end loop over rows
   }
+
+  void operator()(const std::vector<cv::Mat>& imgStack, SampleStatistics& statistics, const std::vector<double>* scale = 0)
+  {
+    for (size_t iFrame = 0; iFrame < imgStack.size(); ++iFrame) {
+      operator()(imgStack[iFrame] * (scale ? (*scale)[iFrame] : 1.), statistics);
+    } // end loop over frames
+  }
 };
 
 
