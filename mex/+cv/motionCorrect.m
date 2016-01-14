@@ -16,7 +16,8 @@
 %
 %  The medianRebin parameter can be used to specify that the median should be computed 
 %  using this number of frames per data point, instead of all frames. This can help
-%  reduce the amount of time required to motion correct.
+%  reduce the amount of time required to motion correct, and also to obtain a sensible 
+%  template for data that is very noisy or close to zero per frame.
 %
 %  Author:   Sue Ann Koay (koay@princeton.edu)
 %
