@@ -45,6 +45,21 @@ double harmonicMean(double Fbound, double Fmean, double Fdev)
 }
 
 
+static const char*    METHOD_INTERP[] = { "nearestNeighbor"
+                                        , "linear"
+                                        , "cubic"
+                                        , "area"
+                                        , "lanczos4"
+                                        };
+
+static const char*    METHOD_CORR[]   = { "squaredDifference"
+                                        , "sqDiffNormed"
+                                        , "crossCorrelation"
+                                        , "crossCorrNormed"
+                                        , "correlationCoeff"
+                                        , "corrCoeffNormed"
+                                        };
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Main entry point to a MEX function
@@ -348,14 +363,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Parameters
   static const char*          PARAM_FIELDS[]  = { "maxShift"
-                                                //, "crop"
-                                                , "subpixel"
-                                                //, "blockSize"
-                                                //, "whichFrames"
+                                                , "maxIter"
+                                                , "stopBelowShift"
+                                                , "blackTolerance"
+                                                , "medianRebin"
+                                                , "interpolation"
+                                                , "metric"
+                                                , "emptyValue"
                                                 };
-  mxArray*                    outParams       = mxCreateStructMatrix(1, 1, 2, PARAM_FIELDS);
-  mxSetField(outParams, 0, "maxShift"   , mxCreateDoubleScalar(maxShift));
-  mxSetField(outParams, 0, "subpixel"   , mxCreateLogicalScalar(subPixelReg));
+  mxArray*                    outParams       = mxCreateStructMatrix(1, 1, 8, PARAM_FIELDS);
+  mxSetField(outParams, 0, "maxShift"      , mxCreateDoubleScalar(maxShift));
+  mxSetField(outParams, 0, "maxIter"       , mxCreateDoubleScalar(maxIter));
+  mxSetField(outParams, 0, "stopBelowShift", mxCreateDoubleScalar(stopBelowShift));
+  mxSetField(outParams, 0, "blackTolerance", mxCreateDoubleScalar(emptyProb));
+  mxSetField(outParams, 0, "medianRebin"   , mxCreateDoubleScalar(medianRebin));
+  mxSetField(outParams, 0, "interpolation" , mxCreateString(METHOD_INTERP[methodInterp % 5]));      // HACK: ignore flags
+  mxSetField(outParams, 0, "metric"        , mxCreateString(METHOD_CORR[methodCorr]));
+  mxSetField(outParams, 0, "emptyValue"    , mxCreateDoubleScalar(emptyValue[0]));
 
   // Metric
   static const char*          METRIC_FIELDS[] = { "name"
