@@ -130,9 +130,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // The frame rebinning factor (for computation of median only) must be a divisor of
   // the number of frames to avoid edge artifacts
   const size_t                numFrames       = imgStack.size();
-  if (numFrames % medianRebin > 1)
-    mexErrMsgIdAndTxt( "motionCorrect:arguments", "The number of frames to aggregate (medianRebin = %d) must be a divisor of the number of frames (%d).", medianRebin, numFrames );
-  const size_t                numMedian       = imgStack.size() / medianRebin;
+  const size_t                numMedian       = static_cast<size_t>( imgStack.size() / medianRebin );
+  if (numMedian < 1)
+    mexErrMsgIdAndTxt( "motionCorrect:arguments", "The number of frames to aggregate (medianRebin = %d) must be smaller than the number of frames (%d).", medianRebin, numFrames );
 
 
 
@@ -334,7 +334,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
       // Aggregate frames for median computation if so requested
-      if (medianRebin > 1) {
+      if (medianRebin > 1 && iMedian < numMedian) {
         if (iBin == 0)        frmShifted.copyTo(imgShifted[iMedian]);
         else                  imgShifted[iMedian] += frmShifted;
         if (++iBin >= medianRebin) {
