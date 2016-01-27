@@ -163,10 +163,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   
   //---------------------------------------------------------------------------
   // Preallocate temporary storage for computations
-  cv::Mat                     frmInput  (imgStack[0].rows                , imgStack[0].cols                , CV_32F);
-  cv::Mat                     frmTemp   (imgStack[0].rows                , imgStack[0].cols                , CV_32F);
-  cv::Mat                     imgRef    (imgStack[0].rows - 2*firstRefRow, imgStack[0].cols - 2*firstRefCol, CV_32F);
-  cv::Mat                     metric    (metricSize[0]                   , metricSize[1]                   , CV_32F);
+  cv::Mat                     frmInput  (imgStack[0].rows, imgStack[0].cols, CV_32F);
+  cv::Mat                     frmTemp   (imgStack[0].rows, imgStack[0].cols, CV_32F);
+  cv::Mat                     imgRef    (imgStack[0].rows, imgStack[0].cols, CV_32F);
+  cv::Mat                     metric    (metricSize[0]   , metricSize[1]   , CV_32F);
+  cv::Mat                     refRegion       = imgRef(cv::Rect(firstRefCol, firstRefRow, imgStack[0].rows - 2*firstRefRow, imgStack[0].cols - 2*firstRefCol));
+
   std::vector<float>          traceTemp (std::max(numMedian, refStack.size()));
   std::vector<cv::Mat>        imgShifted(numMedian);
   std::vector<double>         medWeight;
@@ -204,7 +206,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                                                                             
   // Obtain some global statistics to be used for data scaling and display
   double                      showMin, showMax, templateMin, templateMax;
-  SampleStatistics          inputStats;
+  SampleStatistics            inputStats;
   if (displayProgress || emptyIsMean)
   {
     cvCall<AccumulateMatStatistics>(imgStack, inputStats);
@@ -225,41 +227,72 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const cv::Scalar            emptyValue( emptyIsMean ? inputStats.getMean() : usrEmptyValue );
   char                        strTemplate[1000];
   
-  if (displayProgress)
+  if (displayProgress) {
     cv::namedWindow("Corrected", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+    cv::resizeWindow("Corrected", imgStack[0].cols, imgStack[0].rows);
+  }
 
   
   //---------------------------------------------------------------------------
 
-  int                         iteration       = 1;
-  for (int iShift = 0; iteration <= maxIter; ++iteration)
+  int                         iteration       = 0;
+  double                      midXShift       = 0;
+  double                      midYShift       = 0;
+  double                      maxRelShift     = 1e308;
+  while (true)
   {
     // Relative index at which the previous shifts were stored
-    const int                 iPrevX          = ( iteration < 2 ? 0 : numFrames );
-    const int                 iPrevY          = ( iteration < 2 ? 0 : numFrames );
+    const int                 iPrevX          = ( iteration < 1 ? 0 : numFrames );
+    const int                 iPrevY          = ( iteration < 1 ? 0 : numFrames );
 
     // Compute median image 
     if (iteration > 1 || refStack.empty()) {
+      // Scale to compensate for black (omitted) frames
       for (size_t iMedian = 0; iMedian < numMedian; ++iMedian)
         imgShifted[iMedian]  *= medWeight[iMedian];
-      cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp, firstRefRow, firstRefCol);
+
+      // Translate reference image so as to waste as few pixels as possible
+      if (midXShift != 0 || midYShift != 0) {
+        cvCall<MedianVecMat32>(imgShifted, frmTemp, traceTemp);
+        if (subPixelReg) {
+          xTrans[2]           = -midXShift;
+          yTrans[2]           = -midYShift;
+          cv::warpAffine( frmTemp, imgRef, translator, imgRef.size()
+                        , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
+                        );
+        }
+        else  cvCall<CopyShiftedImage32>(imgRef, frmTemp, midXShift, midYShift, emptyValue[0]);
+      }
+      else    cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp);
     }
-    else
-      cvCall<MedianVecMat32>(refStack, imgRef, traceTemp, firstRefRow, firstRefCol);
+    else      cvCall<MedianVecMat32>(refStack, imgRef, traceTemp, firstRefRow, firstRefCol);
+
+
+    // Stop if the maximum shift relative to the previous iteration is small enough
+    if (maxRelShift < stopBelowShift)         break;
+    if (iteration >= maxIter)                 break;
+    ++iteration;
+
+
     if (displayProgress && (iteration == 1 || refStack.empty())) {
       //imshoweq("Template", imgRef, -minValue);
       if (refStack.empty())   std::sprintf(strTemplate, "Template (iteration %d) : %d-frame median", iteration, medianRebin);
       else                    std::sprintf(strTemplate, "Template (user provided)");
       cv::namedWindow(strTemplate, CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+      cv::resizeWindow(strTemplate, imgStack[0].cols, imgStack[0].rows);
       imshowrange(strTemplate, imgRef, templateMin, templateMax);
       mexEvalString("drawnow");
     }
 
 
+    //.........................................................................
+
     // Loop through frames and correct each one
-    double                    maxRelShift     = -1e308;
     float*                    ptrMetric       = stackMetric;
-    for (size_t iFrame = 0, iMedian = 0, iBin = 0; iFrame < numFrames; ++iFrame, ++iShift) 
+    double                    minXShift       = 1e308, maxXShift = -1e308;
+    double                    minYShift       = 1e308, maxYShift = -1e308;
+    maxRelShift               = -1e308;
+    for (size_t iFrame = 0, iMedian = 0, iBin = 0; iFrame < numFrames; ++iFrame) 
     {
       imgStack[iFrame].convertTo(frmInput, CV_32F);
       //if (displayProgress)    imshowrange("Image", frmInput, showMin, showMax);
@@ -267,7 +300,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
       // Obtain metric values for all possible shifts and find the optimum
       cv::Point               optimum;
-      cv::matchTemplate(frmInput, imgRef, metric, methodCorr);
+      cv::matchTemplate(frmInput, refRegion, metric, methodCorr);
       if (methodCorr == cv::TemplateMatchModes::TM_SQDIFF || methodCorr == cv::TemplateMatchModes::TM_SQDIFF_NORMED)
             cv::minMaxLoc(metric, optimMetric + iFrame, NULL, &optimum, NULL    );
       else  cv::minMaxLoc(metric, NULL, optimMetric + iFrame, NULL    , &optimum);
@@ -306,7 +339,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         yTrans[2]             = rowShift      = -( optimum.y - firstRefRow + yPeak );
 
         // Perform an affine transformation i.e. sub-pixel shift via interpolation
-        cv::warpAffine( frmInput, frmShifted, translator, frmTemp.size()
+        cv::warpAffine( frmInput, frmShifted, translator, frmShifted.size()
                       , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
                       );
       }
@@ -320,10 +353,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       }
 
       // Record history of shifts
-      maxRelShift             = std::max(maxRelShift, std::fabs(colShift - xShifts[iShift - iPrevX]));
-      maxRelShift             = std::max(maxRelShift, std::fabs(rowShift - yShifts[iShift - iPrevY]));
-      xShifts[iShift]         = colShift;
-      yShifts[iShift]         = rowShift;
+      maxRelShift             = std::max(maxRelShift, std::fabs(colShift - xShifts[iFrame - iPrevX]));
+      maxRelShift             = std::max(maxRelShift, std::fabs(rowShift - yShifts[iFrame - iPrevY]));
+      xShifts[iFrame]         = colShift;
+      yShifts[iFrame]         = rowShift;
+      minXShift               = std::min(minXShift, colShift);
+      minYShift               = std::min(minYShift, rowShift);
+      maxXShift               = std::max(maxXShift, colShift);
+      maxYShift               = std::max(maxYShift, rowShift);
 
 
       if (displayProgress) {
@@ -345,9 +382,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     } // end loop over frames
 
 
-    // Stop if the maximum shift relative to the previous iteration is small enough
-    //if (displayProgress)      cv::destroyWindow(strTemplate);
-    if (maxRelShift < stopBelowShift)           break;
+    // Adjust shifts so that they span the range symmetrically
+    midXShift                 = (minXShift + maxXShift) / 2;
+    midYShift                 = (minYShift + maxYShift) / 2;
+    for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
+      xShifts[iFrame]        -= midXShift;
+      yShifts[iFrame]        -= midYShift;
+    }
+    xShifts                  += numFrames;
+    yShifts                  += numFrames;
   } // end loop over iterations
   if (displayProgress)        cv::destroyWindow("Corrected");
 

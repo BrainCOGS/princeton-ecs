@@ -23,7 +23,9 @@
 template<typename Pixel>
 struct MedianVecMat32
 {
-  void operator()(const std::vector<cv::Mat>& stack, cv::Mat& median, std::vector<float>& traceTemp, int firstRow, int firstCol, const std::vector<bool>* omit = 0)
+  void operator() ( const std::vector<cv::Mat>& stack, cv::Mat& median, std::vector<float>& traceTemp
+                  , int firstRow = 0, int firstCol = 0, const std::vector<bool>* omit = 0
+                  )
   {
     // Sanity check for output size and type
     CV_DbgAssert(   !stack.empty()

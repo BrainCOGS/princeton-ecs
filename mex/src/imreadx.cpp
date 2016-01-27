@@ -270,8 +270,8 @@ void checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int firs
       mexErrMsgIdAndTxt( "imreadx:shifts", "Number of %s rows (%d) is less than the number of frames (%d) in this image stack.", name, numShifts, numFrames);
     else {
       ptrShifts      += firstFrame + (numCols - 1) * numRows;
-      if (numCols > 1)
-        mexWarnMsgIdAndTxt( "imreadx:shifts", "Multiple columns (%d) of %s provided. Will use last column for corrections.", numCols, name);
+      //if (numCols > 1)
+      //  mexWarnMsgIdAndTxt( "imreadx:shifts", "Multiple columns (%d) of %s provided. Will use last column for corrections.", numCols, name);
     }
   }
 
