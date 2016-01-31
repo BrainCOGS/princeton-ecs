@@ -167,7 +167,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   cv::Mat                     frmTemp   (imgStack[0].rows, imgStack[0].cols, CV_32F);
   cv::Mat                     imgRef    (imgStack[0].rows, imgStack[0].cols, CV_32F);
   cv::Mat                     metric    (metricSize[0]   , metricSize[1]   , CV_32F);
-  cv::Mat                     refRegion       = imgRef(cv::Rect(firstRefCol, firstRefRow, imgStack[0].rows - 2*firstRefRow, imgStack[0].cols - 2*firstRefCol));
+  cv::Mat                     refRegion       = imgRef(cv::Rect(firstRefCol, firstRefRow, imgStack[0].cols - 2*firstRefCol, imgStack[0].rows - 2*firstRefRow));
 
   std::vector<float>          traceTemp (std::max(numMedian, refStack.size()));
   std::vector<cv::Mat>        imgShifted(numMedian);
@@ -272,7 +272,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (maxRelShift < stopBelowShift)         break;
     if (iteration >= maxIter)                 break;
     ++iteration;
-
 
     if (displayProgress && (iteration == 1 || refStack.empty())) {
       //imshoweq("Template", imgRef, -minValue);
