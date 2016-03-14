@@ -13,17 +13,25 @@ function movie = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, vara
     frameSize     = cropping.selectSize;
   end
   movie           = zeros([frameSize, 0], 'like', motionCorr(1).reference);
+  
   for iFile = 1:numel(imageFiles)
     % Read in the image and apply motion correction shifts
     img           = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
-    img           = rebin(img, frameGrouping, 3);
+    
+    if ~isempty(frameGrouping) && frameGrouping > 1
+      img         = rebin(img, frameGrouping, 3);
+    end
   
     % Crop border if so requested
     if ~isempty(cropping)
       img         = rectangularSubset(img, cropping.selectMask, cropping.selectSize, 1);
     end
     
-    movie(:,:,end + (1:size(img,3)))  = img;
+    if iFile > 1
+      movie(:,:,end + (1:size(img,3)))  = img;
+    else
+      movie       = img;
+    end
   end
   
 end
