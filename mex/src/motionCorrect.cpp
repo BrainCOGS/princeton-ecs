@@ -5,6 +5,7 @@
     mc  = cv.motionCorrect( inputPath, maxShift, maxIter                            ...
                           , [displayProgress = false], [stopBelowShift = 0]         ...
                           , [blackTolerance = nan], [medianRebin = 1]               ...
+                          , [frameSkip = [0 0]]                                     ...
                           , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]    ...
                           , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]  ...
                           , [emptyValue = mean]                                     ...
@@ -83,10 +84,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const double                stopBelowShift  = ( nrhs >  4 ? mxGetScalar(prhs[4])         : 0.     );
   const double                emptyProb       = ( nrhs >  5 ? mxGetScalar(prhs[5])         : -999.  );
   const int                   medianRebin     = ( nrhs >  6 ? int( mxGetScalar(prhs[6]) )  : 1      );
-  const int                   methodInterp    = ( nrhs >  7 ? int( mxGetScalar(prhs[7]) )  : cv::InterpolationFlags::INTER_LINEAR     );
-  const int                   methodCorr      = ( nrhs >  8 ? int( mxGetScalar(prhs[8]) )  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
-  const double                usrEmptyValue   = ( nrhs >  9 ?      mxGetScalar(prhs[9])    : 0.     );
-  const bool                  emptyIsMean     = ( nrhs < 10 );
+  const mxArray*              frameSkip       = ( nrhs >  7 ? prhs[7]                      : 0      );
+  const int                   methodInterp    = ( nrhs >  8 ? int( mxGetScalar(prhs[8]) )  : cv::InterpolationFlags::INTER_LINEAR     );
+  const int                   methodCorr      = ( nrhs >  9 ? int( mxGetScalar(prhs[9]) )  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
+  const double                usrEmptyValue   = ( nrhs > 10 ?      mxGetScalar(prhs[10])   : 0.     );
+  const bool                  emptyIsMean     = ( nrhs < 11 );
   const bool                  subPixelReg     = ( methodInterp >= 0 );
 
 
@@ -120,6 +122,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Otherwise load image with stored bit depth
   else if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_UNCHANGED))
       mexErrMsgIdAndTxt( "motionCorrect:load", "Failed to load input image." );
+
+  // Frame skipping if so desired
+  if (frameSkip) {
+    if (mxGetNumberOfElements(frameSkip) != 2)
+      mexErrMsgIdAndTxt( "motionCorrect:arguments", "frameSkip must be a 2-element array [offset, skip]." );
+    const double*             skip            = mxGetPr(frameSkip);
+    int                       iOutput         = 0;
+    for (int iInput = skip[0]; iInput < imgStack.size(); iInput += skip[1], ++iOutput)
+      imgStack[iOutput]       = imgStack[iInput];
+    imgStack.resize(iOutput);
+  }
 
   // Sanity checks on image stack
   if (imgStack.empty())
@@ -426,6 +439,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   mxSetField(outParams, 0, "stopBelowShift", mxCreateDoubleScalar(stopBelowShift));
   mxSetField(outParams, 0, "blackTolerance", mxCreateDoubleScalar(emptyProb));
   mxSetField(outParams, 0, "medianRebin"   , mxCreateDoubleScalar(medianRebin));
+  if (frameSkip)              mxSetField(outParams, 0, "frameSkip", mxDuplicateArray(frameSkip));
+  else                        mxSetField(outParams, 0, "frameSkip", mxCreateDoubleMatrix(0, 0, mxREAL));
   mxSetField(outParams, 0, "interpolation" , mxCreateString(METHOD_INTERP[methodInterp % 5]));      // HACK: ignore flags
   mxSetField(outParams, 0, "emptyValue"    , mxCreateDoubleScalar(emptyValue[0]));
 
