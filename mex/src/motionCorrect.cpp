@@ -430,10 +430,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                                                 , "stopBelowShift"
                                                 , "blackTolerance"
                                                 , "medianRebin"
+                                                , "frameSkip"
                                                 , "interpolation"
                                                 , "emptyValue"
                                                 };
-  mxArray*                    outParams       = mxCreateStructMatrix(1, 1, 7, PARAM_FIELDS);
+  mxArray*                    outParams       = mxCreateStructMatrix(1, 1, 8, PARAM_FIELDS);
   mxSetField(outParams, 0, "maxShift"      , mxCreateDoubleScalar(maxShift));
   mxSetField(outParams, 0, "maxIter"       , mxCreateDoubleScalar(maxIter));
   mxSetField(outParams, 0, "stopBelowShift", mxCreateDoubleScalar(stopBelowShift));
