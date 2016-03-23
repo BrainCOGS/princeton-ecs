@@ -129,7 +129,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       mexErrMsgIdAndTxt( "motionCorrect:arguments", "frameSkip must be a 2-element array [offset, skip]." );
     const double*             skip            = mxGetPr(frameSkip);
     int                       iOutput         = 0;
-    for (int iInput = skip[0]; iInput < imgStack.size(); iInput += skip[1], ++iOutput)
+    for (int iInput = skip[0]; iInput < imgStack.size(); iInput += 1 + skip[1], ++iOutput)
       imgStack[iOutput]       = imgStack[iInput];
     imgStack.resize(iOutput);
   }
