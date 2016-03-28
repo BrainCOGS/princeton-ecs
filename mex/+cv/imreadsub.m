@@ -12,12 +12,18 @@ function movie = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, vara
   else
     frameSize     = cropping.selectSize;
   end
-  movie           = zeros([frameSize, 0], 'like', motionCorr(1).reference);
+  
+  % Preallocate output
+  info            = cv.imfinfox(imageFiles);
+  totalFrames     = sum(ceil(info.fileFrames / frameGrouping));
+  movie           = zeros([frameSize, totalFrames], 'like', motionCorr(1).reference);
+  numFrames       = 0;
   
   for iFile = 1:numel(imageFiles)
     % Read in the image and apply motion correction shifts
     img           = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
     
+    % Rebin if so desired
     if ~isempty(frameGrouping) && frameGrouping > 1
       img         = rebin(img, frameGrouping, 3);
     end
@@ -27,11 +33,8 @@ function movie = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, vara
       img         = rectangularSubset(img, cropping.selectMask, cropping.selectSize, 1);
     end
     
-    if iFile > 1
-      movie(:,:,end + (1:size(img,3)))  = img;
-    else
-      movie       = img;
-    end
+    movie(:,:,numFrames + (1:size(img,3)))  = img;
+    numFrames     = numFrames + size(img,3);
   end
   
 end
