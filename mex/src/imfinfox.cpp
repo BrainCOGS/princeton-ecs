@@ -71,22 +71,33 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   int                         srcWidth        = 0;
   int                         srcHeight       = 0;
   int                         srcBits         = 0;
-  int                         numFrames       = 0;
+  int                         totalFrames     = 0;
+  mxArray*                    matNumFrames    = mxCreateDoubleMatrix(1, inputPath.size(), mxREAL);
+  double*                     numFrames       = mxGetPr(matNumFrames);
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
-    numFrames                += cv::imfinfo(inputPath[iIn], srcWidth, srcHeight, srcBits, iIn > 0);
-    if (numFrames >= maxNumFrames)            break;
+    numFrames[iIn]            = cv::imfinfo(inputPath[iIn], srcWidth, srcHeight, srcBits, iIn > 0);
+    totalFrames              += numFrames[iIn];
+    if (totalFrames >= maxNumFrames)          break;
   }
 
   //---------------------------------------------------------------------------
   // Create output structure
+  mxArray*                    matInput        = mxCreateCellMatrix(1, inputPath.size());
+  for (size_t iIn = 0; iIn < inputPath.size(); ++iIn)
+    mxSetCell(matInput, iIn, mxCreateString(inputPath[iIn]));
+
   static const char*          OUT_FIELDS[]    = { "width"
                                                 , "height"
                                                 , "bitsPerSample"
                                                 , "frames"
+                                                , "filePaths"
+                                                , "fileFrames"
                                                 };
-  plhs[0]                     = mxCreateStructMatrix(1, 1, 4, OUT_FIELDS);
+  plhs[0]                     = mxCreateStructMatrix(1, 1, 6, OUT_FIELDS);
   mxSetFieldByNumber(plhs[0], 0, 0, mxCreateDoubleScalar(srcWidth));
   mxSetFieldByNumber(plhs[0], 0, 1, mxCreateDoubleScalar(srcHeight));
   mxSetFieldByNumber(plhs[0], 0, 2, mxCreateDoubleScalar(srcBits));
-  mxSetFieldByNumber(plhs[0], 0, 3, mxCreateDoubleScalar(std::min(numFrames, maxNumFrames)));
+  mxSetFieldByNumber(plhs[0], 0, 3, mxCreateDoubleScalar(std::min(totalFrames, maxNumFrames)));
+  mxSetFieldByNumber(plhs[0], 0, 4, matInput);
+  mxSetFieldByNumber(plhs[0], 0, 5, matNumFrames);
 }
