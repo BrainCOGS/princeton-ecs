@@ -11,6 +11,7 @@
 #include <vector>
 #include <cstring>
 #include <cstdlib>
+#include <cstdint>
 #include <mex.h>
 #include <tiffio.h>
 
@@ -239,8 +240,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   else if (strcmp(dataType.data(), "uint16") == 0)   parseInfo<unsigned short, 2>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT16_CLASS);  
   else if (strcmp(dataType.data(), "int32" ) == 0)   parseInfo<int           , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT32_CLASS );  
   else if (strcmp(dataType.data(), "uint32") == 0)   parseInfo<unsigned int  , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT32_CLASS);  
-  else if (strcmp(dataType.data(), "int64" ) == 0)   parseInfo<int64         , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT64_CLASS );  
-  else if (strcmp(dataType.data(), "uint64") == 0)   parseInfo<uint64        , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT64_CLASS);  
+  else if (strcmp(dataType.data(), "int64" ) == 0)   parseInfo<int64_t       , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT64_CLASS );  
+  else if (strcmp(dataType.data(), "uint64") == 0)   parseInfo<uint64_t      , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT64_CLASS);  
   else if (strcmp(dataType.data(), "single") == 0)   parseInfo<float         , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxSINGLE_CLASS);
   else if (strcmp(dataType.data(), "double") == 0)   parseInfo<double        , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxDOUBLE_CLASS);  
   else    mexErrMsgIdAndTxt("getSyncInfo:dataType", "Unsupported dataType '%s'.", dataType.data());
