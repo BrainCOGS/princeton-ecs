@@ -58,23 +58,20 @@ end
 %===================================================================================================
 
 %----------  Configuration
-PRINCETONECS    = fileparts(mfilename('fullpath'));
+[PRINCETONECS, thisName]                                  ...
+                = fileparts(mfilename('fullpath'));
 ECS_SRC         = fullfile(PRINCETONECS, 'src');
 ECS_PRIVATE     = fullfile(ECS_SRC     , 'private');
 ECS_LIB         = fullfile(ECS_SRC     , 'lib');
-ECS_OPENCV      = fullfile(ECS_SRC     , 'opencv');
 MEX_CV          = fullfile(PRINCETONECS, '+cv');
 MEX_CVENUM      = fullfile(PRINCETONECS, '+cve');
 MEX_ECS         = fullfile(PRINCETONECS, '+ecs');
 PRIVATE_CV      = fullfile(PRINCETONECS, '+cv' , 'private');
 PRIVATE_ECS     = fullfile(PRINCETONECS, '+ecs', 'private');
 
-% Add required 3rd party libraries here
-THIRDPARTY      = {'libtiff', 'zlib'};
-
 currentDir      = pwd();
 cleanup         = onCleanup(@() cd(currentDir));
-
+isWindows       = strncmpi(computer('arch'), 'win', 3);
 
 
 % .lib -> .so
@@ -87,40 +84,55 @@ cleanup         = onCleanup(@() cd(currentDir));
 try
   OPENCV        = getenv('OPENCV_DIR');
 catch err
-  fprintf('Error encountered while trying to detect OpenCV installation:\n  %s    %s\n', err.identifier, err.message);
-  fprintf('Make sure that you have OpenCV installed and the OPENCV_DIR environmental variable set.\n');
-  fprintf('For example it could look like "C:\OpenCV\install\x64\vc11" in a 64-bit Windows machine.\n');
-  return;
+  OPENCV        = '';
+  warning ( 'ecsCompile:OpenCV'                                                                     ...
+          , [ 'Environment variable OPENCV_DIR not found. Will assume that OpenCV include and '     ...
+              'library paths are in default locations or have been provided as arguments to %s().'  ...
+            ]                                                                                       ...
+          , thisName );
 end
 
-OPENCV_BASE     = fileparts(fileparts(OPENCV));
-OPENCV_INC      = fullfile(OPENCV_BASE, 'include');
-if ~exist(OPENCV_INC, 'dir')
-  error('ecsCompile:opencv', 'OpenCV headers directory %s not found.', OPENCV_INC);
-end
-
-OPENCV_LIB      = fullfile(OPENCV, 'lib');
-cvLibs          = dir( fullfile(OPENCV_LIB,'opencv_*d.lib') );
-[~, cvLibs]     = cellfun(@fileparts, {cvLibs.name}, 'UniformOutput', false);
-if ~debug       % Select non-debug libraries
-  cvLibs        = cellfun(@(x) x(1:end-1), cvLibs, 'UniformOutput', false);
-end
-cvLibs          = strcat('-l', cvLibs);
-if isempty(cvLibs)
-  error('ecsCompile:opencv', 'OpenCV libraries not found in %s.', OPENCV_LIB);
-end
-
-OPENCV_3RD      = fullfile(fileparts(OPENCV_BASE), '3rdparty', 'lib');
-if debug
-  OPENCV_3RD    = fullfile(OPENCV_3RD, 'Debug');
-  postfix       = 'd';
+if isempty(OPENCV)
+  cvLibs        = {};
 else
-  OPENCV_3RD    = fullfile(OPENCV_3RD, 'Release');
-  postfix       = '';
+  OPENCV_BASE   = fileparts(fileparts(OPENCV));
+  OPENCV_INC    = fullfile(OPENCV_BASE, 'include');
+  if ~exist(OPENCV_INC, 'dir')
+    error('ecsCompile:opencv', 'OpenCV headers directory %s not found.', OPENCV_INC);
+  end
+
+  OPENCV_LIB    = fullfile(OPENCV, 'lib');
+  cvLibs        = dir( fullfile(OPENCV_LIB,'opencv_*d.lib') );
+  [~, cvLibs]   = cellfun(@fileparts, {cvLibs.name}, 'UniformOutput', false);
+  if ~debug     % Select non-debug libraries
+    cvLibs      = cellfun(@(x) x(1:end-1), cvLibs, 'UniformOutput', false);
+  end
+  cvLibs        = strcat('-l', cvLibs);
+  if isempty(cvLibs)
+    error('ecsCompile:opencv', 'OpenCV libraries not found in %s.', OPENCV_LIB);
+  end
+
+  OPENCV_3RD    = fullfile(fileparts(OPENCV_BASE), '3rdparty', 'lib');
+  if debug
+    OPENCV_3RD  = fullfile(OPENCV_3RD, 'Debug');
+    postfix     = 'd';
+  else
+    OPENCV_3RD  = fullfile(OPENCV_3RD, 'Release');
+    postfix     = '';
+  end
 end
 
-for iLib = 1:numel(THIRDPARTY)
-  cvLibs{end+1} = sprintf('-l%s%s.lib', THIRDPARTY{iLib}, postfix);
+
+%----------  libtiff installation
+try
+  LIBTIFF       = getenv('LIBTIFF_DIR');
+catch err
+  LIBTIFF       = '';
+  warning ( 'ecsCompile:libtiff'                                                                    ...
+          , [ 'Environment variable LIBTIFF_DIR not found. Will assume that libtiff include and '   ...
+              'library paths are in default locations or have been provided as arguments to %s().'  ...
+            ]                                                                                       ...
+          , thisName );
 end
 
 
@@ -131,18 +143,43 @@ end
 ecsOpts       = varargin;
 
 %----------  Additional OpenCV code compilation options
+tiffOpts      = ecsOpts;
+if isempty(LIBTIFF)
+  tiffOpts    = [ tiffOpts, { '-ltiff' } ];
+else
+  tiffOpts    = [ tiffOpts                                                                          ...
+                , { '-ltiff'                                                                        ...
+                  , sprintf('-L"%s"', fullfile(LIBTIFF, 'project', 'libtiff', 'Release'))           ...
+                  , sprintf('-I"%s"', fullfile(LIBTIFF, 'project', 'libtiff'))                      ...
+                  , sprintf('-I"%s"', fullfile(LIBTIFF, 'libtiff'))                                 ...
+                  }                                                                                 ...
+                ];
+end
+
+%----------  Additional OpenCV code compilation options
 if debug
   varargin{end+1} = 'COMPFLAGS="$COMPFLAGS /D_SECURE_SCL=1 /MDd"';
 end
-cvOpts        = [ varargin                                ...
+cvOpts        = ecsOpts;
+if isempty(OPENCV)
+  cvOpts      = [ cvOpts                                  ...
+                , { '-lopencv_core'                       ...
+                  , '-lopencv_highgui'                    ...
+                  , '-lopencv_ml'                         ...
+                  , '-lopencv_imgcodecs'                  ...
+                  , '-lopencv_imgproc'                    ...
+                  }                                       ...
+                ];
+else
+  cvOpts      = [ cvOpts                                  ...
                 , { '-largeArrayDims'                     ...
                   , sprintf('-I"%s"', OPENCV_INC)         ...
-                  , sprintf('-I"%s"', ECS_OPENCV)         ...
                   , sprintf('-L"%s"', OPENCV_LIB)         ...
                   , sprintf('-L"%s"', OPENCV_3RD)         ...
                   }                                       ...
                 ];
-if strncmpi(computer('arch'), 'win', 3)
+end
+if isWindows
   cvOpts{end+1} = '-DWIN32';
 end
 cvOpts        = [ cvOpts                                  ...
@@ -154,31 +191,34 @@ cvOpts        = [ cvOpts                                  ...
 %   Compilation procedure
 %===================================================================================================
 
-% Compile OpenCV clones
-opencvObjs    = doCompile(dir(fullfile(ECS_OPENCV, '*.cpp')), ECS_OPENCV, ECS_OPENCV, 'obj', [{'-c'} cvOpts], false, lazy);
-cvOpts        = [cvOpts , opencvObjs];
-  
 % Get separate lists of OpenCV dependent and non-dependent code files
-[cvSrc,ecsSrc]= getMEXCode(ECS_LIB, '*.cpp');
+[cvSrc, tiffSrc, ecsSrc]  = getMEXCode(ECS_LIB, '*.cpp');
 
 % Compile common object files
 ecsObjs       = doCompile(ecsSrc, ECS_LIB, ECS_LIB, 'obj', [{'-c'} ecsOpts], false, lazy);
-ecsOpts       = [ecsOpts, ecsObjs];
-cvOpts        = [cvOpts , ecsObjs];
+ecsOpts       = [ecsOpts , ecsObjs];
+cvOpts        = [cvOpts  , ecsObjs];
+tiffOpts      = [tiffOpts, ecsObjs];
 
 % Compile OpenCV specific object files
 cvObjs        = doCompile(cvSrc, ECS_LIB, ECS_LIB, 'obj', [{'-c'} cvOpts], false, lazy);
 cvOpts        = [cvOpts, cvObjs];
 
+% Compile libtiff specific object files
+tiffObjs      = doCompile(tiffSrc, ECS_LIB, ECS_LIB, 'obj', [{'-c'} tiffOpts], false, lazy);
+tiffOpts      = [tiffOpts, tiffObjs];
+
 % Compile separately OpenCV dependent and non-dependent MEX programs
-[cvSrc,ecsSrc]= getMEXCode(ECS_SRC, '*.cpp');
-doCompile(ecsSrc, ECS_SRC, MEX_ECS, mexext, ecsOpts, true, lazy);
-doCompile(cvSrc , ECS_SRC, MEX_CV , mexext, cvOpts , true, lazy);
+[cvSrc, tiffSrc, ecsSrc]  = getMEXCode(ECS_SRC, '*.cpp');
+doCompile(ecsSrc , ECS_SRC, MEX_ECS, mexext, ecsOpts , true, lazy);
+doCompile(tiffSrc, ECS_SRC, MEX_ECS, mexext, tiffOpts, true, lazy);
+doCompile(cvSrc  , ECS_SRC, MEX_CV , mexext, cvOpts  , true, lazy);
 
 % Compile separately private MEX programs
-[cvSrc,ecsSrc]= getMEXCode(ECS_PRIVATE, '*.cpp');
-doCompile(ecsSrc, ECS_PRIVATE, PRIVATE_ECS, mexext, ecsOpts, true, lazy);
-doCompile(cvSrc , ECS_PRIVATE, PRIVATE_CV , mexext, cvOpts , true, lazy);
+[cvSrc, tiffSrc, ecsSrc]  = getMEXCode(ECS_PRIVATE, '*.cpp');
+doCompile(ecsSrc , ECS_PRIVATE, PRIVATE_ECS, mexext, ecsOpts , true, lazy);
+doCompile(tiffSrc, ECS_PRIVATE, PRIVATE_ECS, mexext, tiffOpts, true, lazy);
+doCompile(cvSrc  , ECS_PRIVATE, PRIVATE_CV , mexext, cvOpts  , true, lazy);
 
 % Generate enumeration types
 if genEnums
@@ -191,7 +231,7 @@ fprintf('\n\n     ********************  Princeton ECS compilation complete  ****
 end
 
 %%
-function [cvMex, otherMex] = getMEXCode(srcDir, srcMask)
+function [cvMex, tiffMex, otherMex] = getMEXCode(srcDir, srcMask)
 
   if ~exist(srcDir, 'dir')
     cvMex             = {};
@@ -202,6 +242,7 @@ function [cvMex, otherMex] = getMEXCode(srcDir, srcMask)
   cd(srcDir);
   srcFile             = dir(fullfile(srcDir, srcMask));
   cvMex               = srcFile;
+  tiffMex             = srcFile;
   otherMex            = srcFile;
   
   for iFile = numel(srcFile):-1:1
@@ -210,10 +251,19 @@ function [cvMex, otherMex] = getMEXCode(srcDir, srcMask)
                               , '^\s*#\s*include\s+.*(opencv)|\<cv\s*::|\<CV_|\<Cv[A-Z]'      ...
                               , 'lineanchors', 'dotexceptnewline', 'once'                     ...
                               );
-    if isempty(cvMatch)
-      cvMex(iFile)    = [];
-    else
+    tiffMatch         = regexp( source                                                        ...
+                              , '^\s*#\s*include\s+.*(tiff)|\<TIFF[A-Z_]'                     ...
+                              , 'lineanchors', 'dotexceptnewline', 'once'                     ...
+                              );
+    if ~isempty(cvMatch)
+      tiffMex(iFile)  = [];
       otherMex(iFile) = [];
+    elseif ~isempty(tiffMatch)
+      cvMex(iFile)    = [];
+      otherMex(iFile) = [];
+    else
+      cvMex(iFile)    = [];
+      tiffMex(iFile)  = [];
     end
   end
 

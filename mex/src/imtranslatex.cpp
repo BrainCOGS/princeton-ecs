@@ -98,7 +98,7 @@ protected:
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 3 || nrhs > 7 || nlhs > 3) {
+  if (nrhs < 3 || nrhs > 7 || nlhs > 1) {
     mexEvalString("help cv.imtranslatex");
     mexErrMsgIdAndTxt ( "imtranslatex:usage", "Incorrect number of inputs/outputs provided." );
   }

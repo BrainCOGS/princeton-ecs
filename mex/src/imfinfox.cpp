@@ -18,15 +18,13 @@
 */
 
 
+#include <vector>
+#include <limits>
+#include <algorithm>
 #include <mex.h>
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
-#include "lib/matUtils.h"
-#include "lib/cvToMatlab.h"
-#include "lib/manipulateImage.h"
-#include "lib/imageStatistics.h"
-#include "lib/imageCondenser.h"
+#include <tiffio.h>
+
+#undef max
 
 
 
@@ -60,22 +58,53 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   
   // Parse input
-  const int                   maxNumFrames  = ( nrhs > 1 && !mxIsEmpty(prhs[1]) && mxIsFinite(mxGetScalar(prhs[1])) ) 
-                                            ? cv::saturate_cast<int>(mxGetScalar(prhs[1]))
-                                            : std::numeric_limits<int>::max()
+  const size_t                maxNumFrames  = ( nrhs > 1 && !mxIsEmpty(prhs[1]) && mxIsFinite(mxGetScalar(prhs[1])) ) 
+                                            ? static_cast<size_t>(mxGetScalar(prhs[1]))
+                                            : std::numeric_limits<size_t>::max()
                                             ;
 
 
   //---------------------------------------------------------------------------
   // Get parameters of image stack
-  int                         srcWidth        = 0;
-  int                         srcHeight       = 0;
-  int                         srcBits         = 0;
-  int                         totalFrames     = 0;
+  size_t                      srcWidth        = 0;
+  size_t                      srcHeight       = 0;
+  size_t                      srcBits         = 0;
+  size_t                      totalFrames     = 0;
   mxArray*                    matNumFrames    = mxCreateDoubleMatrix(1, inputPath.size(), mxREAL);
   double*                     numFrames       = mxGetPr(matNumFrames);
-  for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
-    numFrames[iIn]            = cv::imfinfo(inputPath[iIn], srcWidth, srcHeight, srcBits, iIn > 0);
+  for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
+  {
+    TIFF*                     img             = TIFFOpen(inputPath[iIn], "r");
+    if (img == NULL)          mexErrMsgIdAndTxt("imfinfox:input", "Failed to load input file '%s'.", inputPath[iIn]);
+
+    // Read info from TIFF header
+    uint32                    width, height;
+    if (!TIFFGetField(img, TIFFTAG_IMAGEWIDTH, &width))
+      mexErrMsgIdAndTxt("imfinfox:header", "Failed to image width for '%s'.", inputPath[iIn]);
+    if (!TIFFGetField(img, TIFFTAG_IMAGELENGTH, &height))
+      mexErrMsgIdAndTxt("imfinfox:header", "Failed to image height for '%s'.", inputPath[iIn]);
+
+    uint16                    bitsPerSample;
+    if (!TIFFGetField(img, TIFFTAG_BITSPERSAMPLE, &bitsPerSample))
+      mexErrMsgIdAndTxt("imfinfox:header", "Failed to read bits per sample for '%s'.", inputPath[iIn]);
+
+    // Check for consistency across stack
+    if (iIn > 0) {
+      if (srcWidth  != width        )   mexErrMsgIdAndTxt("imfinfox:stack", "Image width for '%s' is inconsistent with other file(s)."    , inputPath[iIn]);
+      if (srcHeight != height       )   mexErrMsgIdAndTxt("imfinfox:stack", "Image height for '%s' is inconsistent with other file(s)."   , inputPath[iIn]);
+      if (srcBits   != bitsPerSample)   mexErrMsgIdAndTxt("imfinfox:stack", "Bits per sample for '%s' is inconsistent with other file(s).", inputPath[iIn]);
+    }
+    else {
+      srcWidth                = width;
+      srcHeight               = height;
+      srcBits                 = bitsPerSample;
+    }
+
+
+    do {
+      ++( numFrames[iIn] );
+    } while (TIFFReadDirectory(img));
+
     totalFrames              += numFrames[iIn];
     if (totalFrames >= maxNumFrames)          break;
   }
