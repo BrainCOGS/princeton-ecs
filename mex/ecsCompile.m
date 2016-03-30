@@ -73,6 +73,12 @@ currentDir      = pwd();
 cleanup         = onCleanup(@() cd(currentDir));
 isWindows       = strncmpi(computer('arch'), 'win', 3);
 
+if isWindows
+  objectExt     = 'obj';
+else
+  objectExt     = 'o';
+end
+
 
 % .lib -> .so
 % .obj -> .o
@@ -194,17 +200,17 @@ cvOpts        = [ cvOpts                                  ...
 [cvSrc, tiffSrc, ecsSrc]  = getMEXCode(ECS_LIB, '*.cpp');
 
 % Compile common object files
-ecsObjs       = doCompile(ecsSrc, ECS_LIB, ECS_LIB, 'obj', [{'-c'} ecsOpts], false, lazy);
+ecsObjs       = doCompile(ecsSrc, ECS_LIB, ECS_LIB, objectExt, [{'-c'} ecsOpts], false, lazy);
 ecsOpts       = [ecsOpts , ecsObjs];
 cvOpts        = [cvOpts  , ecsObjs];
 tiffOpts      = [tiffOpts, ecsObjs];
 
 % Compile OpenCV specific object files
-cvObjs        = doCompile(cvSrc, ECS_LIB, ECS_LIB, 'obj', [{'-c'} cvOpts], false, lazy);
+cvObjs        = doCompile(cvSrc, ECS_LIB, ECS_LIB, objectExt, [{'-c'} cvOpts], false, lazy);
 cvOpts        = [cvOpts, cvObjs];
 
 % Compile libtiff specific object files
-tiffObjs      = doCompile(tiffSrc, ECS_LIB, ECS_LIB, 'obj', [{'-c'} tiffOpts], false, lazy);
+tiffObjs      = doCompile(tiffSrc, ECS_LIB, ECS_LIB, objectExt, [{'-c'} tiffOpts], false, lazy);
 tiffOpts      = [tiffOpts, tiffObjs];
 
 % Compile separately OpenCV dependent and non-dependent MEX programs
