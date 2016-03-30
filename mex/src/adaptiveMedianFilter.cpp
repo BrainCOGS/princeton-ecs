@@ -40,7 +40,7 @@ public:
     , emptyValue      (emptyValue)
   {
     for (size_t iCat = 0; iCat < numCategories; ++iCat)
-      categoryValues[iCat].reserve(maskHeight * maskWidth);
+      categoryValues[iCat].reserve(this->maskHeight * this->maskWidth);
   }
 
   ~AdaptiveMedianFilter2D()

@@ -25,7 +25,7 @@ public:
     : ImageFilter2D<Pixel>(imageWidth, imageHeight, static_cast<int>(mxGetN(matMask)), static_cast<int>(mxGetM(matMask)))
     , mask          ((const bool*) mxGetData(matMask))
   {
-    pixelValues.reserve(maskHeight * maskWidth);
+    pixelValues.reserve(this->maskHeight * this->maskWidth);
   }
 
   virtual void clear()

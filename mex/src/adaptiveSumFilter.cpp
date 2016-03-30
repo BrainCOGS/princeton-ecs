@@ -27,7 +27,7 @@ public:
     : ImageFilter2D<Pixel>(imageWidth, imageHeight, static_cast<int>(mxGetN(matWeight)), static_cast<int>(mxGetM(matWeight)))
     , weight        (mxGetPr(matWeight))
   {
-    maskOffset    = maskWidth * maskHeight;
+    maskOffset    = this->maskWidth * this->maskHeight;
   }
 
   virtual void clear()

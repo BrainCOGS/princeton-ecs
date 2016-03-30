@@ -19,7 +19,7 @@
 /// Base class for image filters.
 template<typename Pixel>
 class ImageFilter2D {
-public:
+protected:
   const int           imageWidth ;
   const int           imageHeight;
   const int           maskWidth  ;
