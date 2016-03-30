@@ -31,7 +31,7 @@ public:
                         , const double targetFracPixels
                         , const Pixel emptyValue
                         )
-    : ImageFilter2D   (imageWidth, imageHeight, static_cast<int>(mxGetN(matCategory)), static_cast<int>(mxGetM(matCategory)))
+    : ImageFilter2D<Pixel>(imageWidth, imageHeight, static_cast<int>(mxGetN(matCategory)), static_cast<int>(mxGetM(matCategory)))
     , numCategories   (numCategories)
     , targetFracPixels(targetFracPixels)
     , category        ((const int*) mxGetData(matCategory))

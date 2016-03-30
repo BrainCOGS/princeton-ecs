@@ -22,7 +22,7 @@ protected:
 
 public:
   MedianFilter2D(const int imageWidth, const int imageHeight, const mxArray* matMask)
-    : ImageFilter2D (imageWidth, imageHeight, static_cast<int>(mxGetN(matMask)), static_cast<int>(mxGetM(matMask)))
+    : ImageFilter2D<Pixel>(imageWidth, imageHeight, static_cast<int>(mxGetN(matMask)), static_cast<int>(mxGetM(matMask)))
     , mask          ((const bool*) mxGetData(matMask))
   {
     pixelValues.reserve(maskHeight * maskWidth);

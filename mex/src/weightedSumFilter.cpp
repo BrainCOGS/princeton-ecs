@@ -31,7 +31,7 @@ public:
                       , const mxArray* matWeight, const bool* masked
                       , const double minWeight, const Pixel emptyValue
                       )
-    : ImageFilter2D (imageWidth, imageHeight, static_cast<int>(mxGetN(matWeight)), static_cast<int>(mxGetM(matWeight)))
+    : ImageFilter2D<Pixel>(imageWidth, imageHeight, static_cast<int>(mxGetN(matWeight)), static_cast<int>(mxGetM(matWeight)))
     , weight        (mxGetPr(matWeight))
     , masked        (masked)
     , minWeight     (minWeight)
