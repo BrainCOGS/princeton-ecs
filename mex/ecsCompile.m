@@ -329,7 +329,9 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
     % Run compilation
     try
       mex('-outdir', outDir, options{:}, srcFile(iFile).name);
+      success       = true;
     catch err
+      success       = false;
       displayException(err);
 %       close(hWait);
 %       fprintf('\n\nSTOPPED due to compilation error.\n\n');
@@ -349,14 +351,19 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
                 );
         continue;
       end
-      
+
       [~,target,~]  = fileparts(target);
-      targetID      = fopen(fullfile(outDir, [target '.m']), 'w');
-      fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
-              , upper(target), srcDoc{1}{1}                             ...
-              , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
-              );
-      fclose(targetID);
+      target        = [target '.m'];
+      if succcess
+        targetID    = fopen(fullfile(outDir, target), 'w');
+        fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
+                , upper(target), srcDoc{1}{1}                             ...
+                , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
+                );
+        fclose(targetID);
+      elseif exist(target, 'file')
+        delete(target);
+      end
     end
   end
   
