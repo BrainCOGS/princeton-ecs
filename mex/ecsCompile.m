@@ -353,16 +353,16 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
       end
 
       [~,target,~]  = fileparts(target);
-      target        = fullfile(outDir, [target '.m']);
+      targetFile    = fullfile(outDir, [target '.m']);
       if success
-        targetID    = fopen(target, 'w');
+        targetID    = fopen(targetFile, 'w');
         fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
                 , upper(target), srcDoc{1}{1}                             ...
                 , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
                 );
         fclose(targetID);
-      elseif exist(target, 'file')
-        delete(target);
+      elseif exist(targetFile, 'file')
+        delete(targetFile);
       end
     end
   end
