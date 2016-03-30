@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <cstring>
+#include <cstdlib>
 #include <mex.h>
 #include <tiffio.h>
 
