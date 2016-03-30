@@ -240,6 +240,7 @@ function [cvMex, tiffMex, otherMex] = getMEXCode(srcDir, srcMask)
 
   if ~exist(srcDir, 'dir')
     cvMex             = {};
+    tiffMex           = {};
     otherMex          = {};
     return;
   end
