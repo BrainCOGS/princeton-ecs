@@ -28,13 +28,15 @@ function movie = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, vara
   % Preallocate output
   info            = ecs.imfinfox(imageFiles);
   totalFrames     = sum(ceil(info.fileFrames / frameGrouping));
-  movie           = zeros([frameSize, totalFrames], 'like', motionCorr(1).reference);
   numFrames       = 0;
+  if numel(imageFiles) > 1
+    movie         = zeros([frameSize, totalFrames], 'like', motionCorr(1).reference);
+  end
   
   for iFile = 1:numel(imageFiles)
     % Read in the image and apply motion correction shifts
     if matlabOnly
-      img         = zeros(info.height, info.width, info.fileFrames(iFile));
+      img         = zeros(info.height, info.width, info.fileFrames(iFile), 'like', motionCorr(1).reference);
       iFrame      = 0;
       source      = Tiff(imageFiles{iFile}, 'r');
       while true
@@ -66,7 +68,11 @@ function movie = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, vara
       img         = rectangularSubset(img, cropping.selectMask, cropping.selectSize, 1);
     end
     
-    movie(:,:,numFrames + (1:size(img,3)))  = img;
+    if numel(imageFiles) > 1
+      movie(:,:,numFrames + (1:size(img,3)))  = img;
+    else
+      movie       = img;
+    end
     numFrames     = numFrames + size(img,3);
   end
   

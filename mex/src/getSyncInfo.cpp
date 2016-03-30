@@ -9,6 +9,7 @@
 
 
 #include <vector>
+#include <cstring>
 #include <mex.h>
 #include <tiffio.h>
 
@@ -204,6 +205,7 @@ void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpo
   for (size_t iData = 0; iData < N_TIMESTAMP; ++iData, ++outEpoch)
     *outEpoch           = epoch[iData];
 }
+
 
 
 //=============================================================================
