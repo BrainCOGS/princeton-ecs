@@ -354,7 +354,7 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
 
       [~,target,~]  = fileparts(target);
       target        = [target '.m'];
-      if succcess
+      if success
         targetID    = fopen(fullfile(outDir, target), 'w');
         fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
                 , upper(target), srcDoc{1}{1}                             ...
