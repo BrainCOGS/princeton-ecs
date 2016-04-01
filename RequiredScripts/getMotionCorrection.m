@@ -9,7 +9,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     globalRegistration  = true;
   end
   if nargin < 4
-    varargin    = {10, 1, false, 0.1};
+    varargin    = {10, 5, false, 0.3};
   end
   forceLoad     = false;
   if ischar(recompute)
