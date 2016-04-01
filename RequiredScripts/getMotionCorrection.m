@@ -22,7 +22,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   end
   
 
-  frameCorr      = struct([]);
+  frameCorr     = struct([]);
   isFirst       = true;
   for iFile = 1:numel(inputFiles)
     [dir,name]  = parsePath(inputFiles{iFile});
