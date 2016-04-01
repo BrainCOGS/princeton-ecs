@@ -278,7 +278,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       }
       else    cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp);
     }
-    else      cvCall<MedianVecMat32>(refStack, imgRef, traceTemp, firstRefRow, firstRefCol);
+    else      cvCall<MedianVecMat32>(refStack, imgRef, traceTemp  /*, firstRefRow, firstRefCol ????*/);
 
 
     // Stop if the maximum shift relative to the previous iteration is small enough

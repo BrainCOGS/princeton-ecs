@@ -145,6 +145,7 @@ end
 %----------  Global code compilation options
 if debug
   varargin{end+1} = '-D_DEBUG';
+  varargin{end+1} = 'COMPFLAGS="$COMPFLAGS -MDd"';
 end
 ecsOpts       = varargin;
 
