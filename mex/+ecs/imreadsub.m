@@ -12,13 +12,7 @@ function movie = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, vara
     imageFiles    = {imageFiles};
   end
   
-  % Option to use Matlab-only code for reading in files
-  matlabOnly      = isempty(which('cv.imreadx'));
-  if matlabOnly && ~isempty(varargin)
-    error('imreadsub:arguments', 'Additional cv.imreadx() options not available because cv.imreadx() was not found.');
-  end
-  
-  
+
   if isempty(cropping)
     frameSize     = size(motionCorr(1).reference);
   else
@@ -27,36 +21,16 @@ function movie = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, vara
   
   % Preallocate output
   info            = ecs.imfinfox(imageFiles);
+  dataType        = class(motionCorr(1).reference);
   totalFrames     = sum(ceil(info.fileFrames / frameGrouping));
   numFrames       = 0;
   if numel(imageFiles) > 1
-    movie         = zeros([frameSize, totalFrames], 'like', motionCorr(1).reference);
+    movie         = zeros([frameSize, totalFrames], dataType);
   end
   
   for iFile = 1:numel(imageFiles)
     % Read in the image and apply motion correction shifts
-    if matlabOnly
-      img         = zeros(info.height, info.width, info.fileFrames(iFile), 'like', motionCorr(1).reference);
-      iFrame      = 0;
-      source      = Tiff(imageFiles{iFile}, 'r');
-      while true
-        iFrame    = iFrame + 1;
-        img(:,:,iFrame) = source.read();
-        if source.lastDirectory()
-          break;
-        end
-        source.nextDirectory();
-      end
-      source.close();
-      
-      if iFrame ~= info.fileFrames(iFile)
-        error('imreadsub:Tiff', 'Inconsistent number of frames %d read by Tiff vs. expected count %d.', iFrame, info.fileFrames(iFile));
-      end
-      
-      img         = cv.imtranslatex(img, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end));
-    else
-      img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
-    end
+    img           = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
     
     % Rebin if so desired
     if ~isempty(frameGrouping) && frameGrouping > 1

@@ -364,6 +364,12 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
         fclose(targetID);
       elseif exist(targetFile, 'file')
         delete(targetFile);
+        
+        [srcDir, srcName] = fileparts(srcFile(iFile).name);
+        source      = fullfile(srdDir, [srcName '.matlabonly.m']);
+        if exist(source, 'file')
+          copyfile(source, targetFile, 'f');
+        end
       end
     end
   end

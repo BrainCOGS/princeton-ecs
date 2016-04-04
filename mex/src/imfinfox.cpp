@@ -69,6 +69,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   size_t                      srcWidth        = 0;
   size_t                      srcHeight       = 0;
   size_t                      srcBits         = 0;
+  size_t                      srcFormat       = 0;
   size_t                      totalFrames     = 0;
   mxArray*                    matNumFrames    = mxCreateDoubleMatrix(1, inputPath.size(), mxREAL);
   double*                     numFrames       = mxGetPr(matNumFrames);
@@ -84,20 +85,24 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (!TIFFGetField(img, TIFFTAG_IMAGELENGTH, &height))
       mexErrMsgIdAndTxt("imfinfox:header", "Failed to image height for '%s'.", inputPath[iIn]);
 
-    uint16                    bitsPerSample;
+    uint16                    bitsPerSample, sampleFormat;
     if (!TIFFGetField(img, TIFFTAG_BITSPERSAMPLE, &bitsPerSample))
       mexErrMsgIdAndTxt("imfinfox:header", "Failed to read bits per sample for '%s'.", inputPath[iIn]);
+    if (!TIFFGetField(img, TIFFTAG_SAMPLEFORMAT, &sampleFormat))
+      mexErrMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s'.", inputPath[iIn]);
 
     // Check for consistency across stack
     if (iIn > 0) {
       if (srcWidth  != width        )   mexErrMsgIdAndTxt("imfinfox:stack", "Image width for '%s' is inconsistent with other file(s)."    , inputPath[iIn]);
       if (srcHeight != height       )   mexErrMsgIdAndTxt("imfinfox:stack", "Image height for '%s' is inconsistent with other file(s)."   , inputPath[iIn]);
       if (srcBits   != bitsPerSample)   mexErrMsgIdAndTxt("imfinfox:stack", "Bits per sample for '%s' is inconsistent with other file(s).", inputPath[iIn]);
+      if (srcFormat != sampleFormat )   mexErrMsgIdAndTxt("imfinfox:stack", "Sample format for '%s' is inconsistent with other file(s)."  , inputPath[iIn]);
     }
     else {
       srcWidth                = width;
       srcHeight               = height;
       srcBits                 = bitsPerSample;
+      srcFormat               = sampleFormat;
     }
 
 
@@ -118,15 +123,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   static const char*          OUT_FIELDS[]    = { "width"
                                                 , "height"
                                                 , "bitsPerSample"
+                                                , "sampleFormat"
                                                 , "frames"
                                                 , "filePaths"
                                                 , "fileFrames"
                                                 };
-  plhs[0]                     = mxCreateStructMatrix(1, 1, 6, OUT_FIELDS);
+  plhs[0]                     = mxCreateStructMatrix(1, 1, 7, OUT_FIELDS);
   mxSetFieldByNumber(plhs[0], 0, 0, mxCreateDoubleScalar(srcWidth));
   mxSetFieldByNumber(plhs[0], 0, 1, mxCreateDoubleScalar(srcHeight));
   mxSetFieldByNumber(plhs[0], 0, 2, mxCreateDoubleScalar(srcBits));
-  mxSetFieldByNumber(plhs[0], 0, 3, mxCreateDoubleScalar(std::min(totalFrames, maxNumFrames)));
-  mxSetFieldByNumber(plhs[0], 0, 4, matInput);
-  mxSetFieldByNumber(plhs[0], 0, 5, matNumFrames);
+  switch (srcFormat) {
+  case SAMPLEFORMAT_UINT:           mxSetFieldByNumber(plhs[0], 0, 3, mxCreateString("UInt"));            break;
+  case SAMPLEFORMAT_INT:            mxSetFieldByNumber(plhs[0], 0, 3, mxCreateString("Int"));             break;
+  case SAMPLEFORMAT_IEEEFP:         mxSetFieldByNumber(plhs[0], 0, 3, mxCreateString("IEEEFP"));          break;
+  case SAMPLEFORMAT_VOID:           mxSetFieldByNumber(plhs[0], 0, 3, mxCreateString("Void"));            break;
+  case SAMPLEFORMAT_COMPLEXINT:     mxSetFieldByNumber(plhs[0], 0, 3, mxCreateString("ComplexInt"));      break;
+  case SAMPLEFORMAT_COMPLEXIEEEFP:  mxSetFieldByNumber(plhs[0], 0, 3, mxCreateString("ComplexIEEEFP"));   break;
+  default:                          mxSetFieldByNumber(plhs[0], 0, 3, mxCreateDoubleScalar(srcFormat));   break;
+  }
+  mxSetFieldByNumber(plhs[0], 0, 4, mxCreateDoubleScalar(std::min(totalFrames, maxNumFrames)));
+  mxSetFieldByNumber(plhs[0], 0, 5, matInput);
+  mxSetFieldByNumber(plhs[0], 0, 6, matNumFrames);
 }

@@ -21,12 +21,7 @@ function movie = parimread(imageFiles, motionCorr, frameGrouping, cropping, numP
   if ischar(imageFiles)
     imageFiles    = {imageFiles};
   end
-  
-  % Option to use Matlab-only code for reading in files
-  matlabOnly      = isempty(which('cv.imreadx'));
-  if matlabOnly && ~isempty(varargin)
-    error('imreadsub:arguments', 'Additional cv.imreadx() options not available because cv.imreadx() was not found.');
-  end
+
   
   % Start parallel pool
   pool            = gcp('nocreate');
@@ -51,8 +46,6 @@ function movie = parimread(imageFiles, motionCorr, frameGrouping, cropping, numP
   if numel(imageFiles) > 1
     movie         = zeros([frameSize, totalFrames], dataType);
   end
-  height          = info.height;
-  width           = info.width;
   
   % Decide chunking
   fileChunk       = chunkIndices(numel(imageFiles), numParallel, @floor);
@@ -60,7 +53,6 @@ function movie = parimread(imageFiles, motionCorr, frameGrouping, cropping, numP
   for iChunk = 1:numel(fileChunk) - 1
     indices       = fileChunk(iChunk):fileChunk(iChunk + 1) - 1;
     chunk         = imageFiles(indices);
-    fileFrames    = info.fileFrames(indices);
     xShifts       = cell(size(indices));
     yShifts       = cell(size(indices));
     for iFile = 1:numel(indices)
@@ -71,28 +63,7 @@ function movie = parimread(imageFiles, motionCorr, frameGrouping, cropping, numP
     
     parfor iFile = 1:numel(chunk)
       % Read in the image and apply motion correction shifts
-      if matlabOnly
-        img       = zeros(height, width, fileFrames(iFile), dataType);
-        iFrame    = 0;
-        source    = Tiff(chunk{iFile}, 'r');
-        while true
-          iFrame  = iFrame + 1;
-          img(:,:,iFrame) = source.read();
-          if source.lastDirectory()
-            break;
-          end
-          source.nextDirectory();
-        end
-        source.close();
-
-        if iFrame ~= fileFrames(iFile)
-          error('imreadsub:Tiff', 'Inconsistent number of frames %d read by Tiff vs. expected count %d.', iFrame, fileFrames(iFile));
-        end
-
-        img       = cv.imtranslatex(img, xShifts{iFile}, yShifts{iFile});
-      else
-        img       = cv.imreadx(chunk{iFile}, xShifts{iFile}, yShifts{iFile}, varargin{:});
-      end
+      img         = cv.imreadx(chunk{iFile}, xShifts{iFile}, yShifts{iFile}, varargin{:});
 
       % Rebin if so desired
       if ~isempty(frameGrouping) && frameGrouping > 1
