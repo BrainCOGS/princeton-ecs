@@ -11,7 +11,7 @@
 %  Author:   Sue Ann Koay (koay@princeton.edu)
 %
 
-function movie = imreadx(inputPath, xShift, yShift, xScale, yScale, maxNumFrames, varargin)
+function movie = imreadx(inputPath, xShifts, yShifts, xScale, yScale, maxNumFrames, varargin)
   
   if ~isempty(varargin)
     error('imreadx:arguments', 'Additional cv.imreadx() options not available in pure Matlab version.');
@@ -21,6 +21,24 @@ function movie = imreadx(inputPath, xShift, yShift, xScale, yScale, maxNumFrames
   if ischar(inputPath)
     inputPath         = {inputPath};
   end
+  if nargin < 3
+    xShifts           = [];
+    yShifts           = [];
+  end
+  if nargin < 5
+    xScale            = 1;
+  end
+  if nargin < 6
+    yScale            = 1;
+  end
+  doTranslate         = ~isempty(xShifts) || ~isempty(yShifts);
+  if doTranslate && (isempty(xShifts) ~= isempty(yShifts))
+    error('imreadx:arguments', 'If xShifts is provided yShifts must be as well, and vice versa.');
+  end
+  if xScale ~= 1 || yScale ~= 1
+    error('imreadx:arguments', 'xScale/yScale not supported yet.');
+  end
+  
   
   % Data format
   info                = ecs.imfinfox(inputPath);
@@ -43,7 +61,7 @@ function movie = imreadx(inputPath, xShift, yShift, xScale, yScale, maxNumFrames
   end
   numFrames           = 0;
   for iFile = 1:numel(inputPath)
-    source            = Tiff(chunk{iFile}, 'r');
+    source            = Tiff(inputPath{iFile}, 'r');
     img               = zeros(info.height, info.width, info.fileFrames(iFile), dataType);
     
     iFrame            = 0;
@@ -57,13 +75,17 @@ function movie = imreadx(inputPath, xShift, yShift, xScale, yScale, maxNumFrames
     end
     source.close();
 
-    if iFrame ~= fileFrames(iFile)
-      error('parimread:Tiff', 'Inconsistent number of frames %d read by Tiff vs. expected count %d.', iFrame, fileFrames(iFile));
+    if iFrame ~= info.fileFrames(iFile)
+      error('parimread:Tiff', 'Inconsistent number of frames %d read by Tiff vs. expected count %d.', iFrame, info.fileFrames(iFile));
     end
 
-    img               = cv.imtranslatex(img, xShifts{iFile}, yShifts{iFile});
+    
+    iFrame            = numFrames + (1:size(img,3));
+    if doTranslate
+      img             = cv.imtranslatex(img, xShifts(iFrame,end), yShifts(iFrame,end));
+    end
     if numel(inputPath) > 1
-      movie(:,:,numFrames + (1:size(img,3)))  = img;
+      movie(:,:,iFrame) = img;
     else
       movie           = img;
     end

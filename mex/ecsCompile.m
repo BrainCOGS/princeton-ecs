@@ -362,11 +362,14 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
                 , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
                 );
         fclose(targetID);
-      elseif exist(targetFile, 'file')
-        delete(targetFile);
+      else
+        if exist(targetFile, 'file')
+          delete(targetFile);
+        end
         
         [srcDir, srcName] = fileparts(srcFile(iFile).name);
-        source      = fullfile(srdDir, [srcName '.matlabonly.m']);
+        source      = fullfile(srcDir, [srcName '.matlabonly.m']);
+%         fprintf('\n\n\n\n%s : %s -> %s -> %s\n\n\n', pwd, srcFile(iFile).name, source, targetFile);
         if exist(source, 'file')
           copyfile(source, targetFile, 'f');
         end
