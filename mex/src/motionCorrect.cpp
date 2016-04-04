@@ -83,7 +83,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const bool                  displayProgress = ( nrhs >  3 ? mxGetScalar(prhs[3]) > 0     : false  );
   const double                stopBelowShift  = ( nrhs >  4 ? mxGetScalar(prhs[4])         : 0.     );
   const double                emptyProb       = ( nrhs >  5 ? mxGetScalar(prhs[5])         : -999.  );
-  const int                   medianRebin     = ( nrhs >  6 ? int( mxGetScalar(prhs[6]) )  : 1      );
+  int                         medianRebin     = ( nrhs >  6 ? int( mxGetScalar(prhs[6]) )  : 1      );
   const mxArray*              frameSkip       = ( nrhs >  7 ? prhs[7]                      : 0      );
   const int                   methodInterp    = ( nrhs >  8 ? int( mxGetScalar(prhs[8]) )  : cv::InterpolationFlags::INTER_LINEAR     );
   const int                   methodCorr      = ( nrhs >  9 ? int( mxGetScalar(prhs[9]) )  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
@@ -143,9 +143,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // The frame rebinning factor (for computation of median only) must be a divisor of
   // the number of frames to avoid edge artifacts
   const size_t                numFrames       = imgStack.size();
-  const size_t                numMedian       = static_cast<size_t>( imgStack.size() / medianRebin );
-  if (numMedian < 1)
-    mexErrMsgIdAndTxt( "motionCorrect:arguments", "The number of frames to aggregate (medianRebin = %d) must be smaller than the number of frames (%d).", medianRebin, numFrames );
+  size_t                      numMedian       = static_cast<size_t>( imgStack.size() / medianRebin );
+  if (numMedian < 1) {
+    mexWarnMsgIdAndTxt( "motionCorrect:arguments", "The number of frames to aggregate (medianRebin = %d) is larger than the number of frames (%d); this is equivalent to using the mean.", medianRebin, numFrames );
+    numMedian                 = 1;
+    medianRebin               = imgStack.size();
+  }
 
 
 
