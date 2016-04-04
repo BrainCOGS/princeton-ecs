@@ -2,3 +2,4 @@
 *.bak
 *.pdb
 version.txt
+/mex/+cv/imreadx.m
