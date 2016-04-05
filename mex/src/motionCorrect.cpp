@@ -461,14 +461,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Motion correction data structure
   static const char*          OUT_FIELDS[]    = { "xShifts"
                                                 , "yShifts"
+                                                , "inputSize"
                                                 , "method"
                                                 , "params"
                                                 , "metric"
                                                 , "reference"
                                                 };
-  plhs[0]                     = mxCreateStructMatrix(1, 1, 6, OUT_FIELDS);
+  plhs[0]                     = mxCreateStructMatrix(1, 1, 7, OUT_FIELDS);
+
+
+  mxArray*                    outSize         = mxCreateDoubleMatrix(1, 3, mxREAL);
+  double*                     sizePtr         = mxGetPr(outSize);
+  sizePtr[0]                  = imgStack[0].rows;
+  sizePtr[1]                  = imgStack[0].cols;
+  sizePtr[2]                  = imgStack.size();
   mxSetField(plhs[0], 0, "xShifts"  , outXShifts);
   mxSetField(plhs[0], 0, "yShifts"  , outYShifts);
+  mxSetField(plhs[0], 0, "inputSize", outSize);
   mxSetField(plhs[0], 0, "method"   , mxCreateString("cv.motionCorrect"));
   mxSetField(plhs[0], 0, "params"   , outParams);
   mxSetField(plhs[0], 0, "metric"   , outMetric);
