@@ -88,8 +88,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     uint16                    bitsPerSample, sampleFormat;
     if (!TIFFGetField(img, TIFFTAG_BITSPERSAMPLE, &bitsPerSample))
       mexErrMsgIdAndTxt("imfinfox:header", "Failed to read bits per sample for '%s'.", inputPath[iIn]);
-    if (!TIFFGetField(img, TIFFTAG_SAMPLEFORMAT, &sampleFormat))
-      mexErrMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s'.", inputPath[iIn]);
+    if (!TIFFGetField(img, TIFFTAG_SAMPLEFORMAT, &sampleFormat)) {
+      double                  minValue;
+      if (TIFFGetField(img, TIFFTAG_SMINSAMPLEVALUE, &minValue)) {
+        if (iIn < 1)          mexWarnMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s', deducing from minimum sample value instead.", inputPath[iIn]);
+        if (bitsPerSample < 32)
+          sampleFormat        = ( minValue < 0 ? SAMPLEFORMAT_INT : SAMPLEFORMAT_INT );
+        else  sampleFormat    = SAMPLEFORMAT_IEEEFP;
+      }
+      else  mexErrMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s'.", inputPath[iIn]);
+    }
+
 
     // Check for consistency across stack
     if (iIn > 0) {
