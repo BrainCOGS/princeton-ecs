@@ -90,13 +90,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       mexErrMsgIdAndTxt("imfinfox:header", "Failed to read bits per sample for '%s'.", inputPath[iIn]);
     if (!TIFFGetField(img, TIFFTAG_SAMPLEFORMAT, &sampleFormat)) {
       double                  minValue;
-      if (TIFFGetField(img, TIFFTAG_SMINSAMPLEVALUE, &minValue)) {
-        if (iIn < 1)          mexWarnMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s', deducing from minimum sample value instead.", inputPath[iIn]);
-        if (bitsPerSample < 32)
-          sampleFormat        = ( minValue < 0 ? SAMPLEFORMAT_INT : SAMPLEFORMAT_INT );
-        else  sampleFormat    = SAMPLEFORMAT_IEEEFP;
+      if (!TIFFGetField(img, TIFFTAG_SMINSAMPLEVALUE, &minValue)) {
+        if (iIn < 1)
+          mexWarnMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s', guessing based on number of bits per sample.", inputPath[iIn]);
+        minValue              = 0;
       }
-      else  mexErrMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s'.", inputPath[iIn]);
+      else if (iIn < 1)       mexWarnMsgIdAndTxt("imfinfox:header", "Failed to read sample format for '%s', deducing from minimum sample value instead.", inputPath[iIn]);
+      if (bitsPerSample < 32)
+        sampleFormat          = ( minValue < 0 ? SAMPLEFORMAT_INT : SAMPLEFORMAT_UINT );
+      else  sampleFormat      = SAMPLEFORMAT_IEEEFP;
     }
 
 
@@ -122,6 +124,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     totalFrames              += numFrames[iIn];
     if (totalFrames >= maxNumFrames)          break;
   }
+
 
   //---------------------------------------------------------------------------
   // Create output structure
