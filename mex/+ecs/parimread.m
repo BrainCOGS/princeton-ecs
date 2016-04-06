@@ -104,9 +104,9 @@ function [movie, varargout] = parimread(imageFiles, motionCorr, frameGrouping, c
   
   % Output original movie size
   if nargout == 2
-    varargout     = {inputSize};
+    varargout     = {movieSize};
   else
-    varargout     = num2cell(inputSize);
+    varargout     = num2cell(movieSize);
   end
   
 end
