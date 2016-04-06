@@ -60,7 +60,7 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
   
   
   % Preallocate output
-  if numel(imageFiles) > 1
+  if numel(imageFiles) > 1 || ~isempty(pixelIndex)
     movie         = zeros(movieSize, dataType);
     if ~isempty(addGrouping)
       binnedMovie = zeros([frameSize, ceil(totalFrames/addGrouping)], dataType);
@@ -96,25 +96,25 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
       bRange      = numBinned + (1:binFrames);
     end
     
-    if numel(imageFiles) == 1
+    if ~isempty(pixelIndex)
+      % Store only subset of pixels
+      img         = reshape(img, [], imgFrames);
+      movie(1:end-1,range)      = img(pixelIndex,:);
+      movie(end    ,range)      = mean(img(remainIndex,:), 1);
+      if ~isempty(addGrouping)
+        binnedMovie(:,:,bRange) = binned;
+      end
+      
+    elseif numel(imageFiles) == 1
       % If there is only one input file, avoid allocation overhead
       movie                 = img;
       if ~isempty(addGrouping)
         binnedMovie         = binned;
       end
       
-    elseif isempty(pixelIndex)
+    else
       % Full frame is stored if pixel indices are not specified
       movie(:,:,range)      = img;
-      if ~isempty(addGrouping)
-        binnedMovie(:,:,bRange) = binned;
-      end
-      
-    else
-      % Store only subset of pixels
-      img         = reshape(img, [], imgFrames);
-      movie(1:end-1,range)      = img(pixelIndex,:);
-      movie(end    ,range)      = mean(img(remainIndex,:), 1);
       if ~isempty(addGrouping)
         binnedMovie(:,:,bRange) = binned;
       end
