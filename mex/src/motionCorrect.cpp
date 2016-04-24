@@ -209,10 +209,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   medWeight.assign(numMedian, 1.);
   for (size_t iMedian = 0, iFrame = 0; iMedian < numMedian; ++iMedian) {
     int                       count           = 0;
+    imgShifted[iMedian].create(imgStack[0].rows, imgStack[0].cols, scratchType);
     for (int iBin = 0; iBin < medianRebin; ++iBin, ++iFrame) {
       if (isEmpty[iFrame])    continue;
-      if (count)              imgShifted[iMedian] += imgStack[iFrame];
-      else                    imgStack[iFrame].convertTo(imgShifted[iMedian], scratchType);
+      imgShifted[iMedian]    += imgStack[iFrame];
       ++count;
     }
     if (count > 1)
@@ -309,6 +309,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     maxRelShift               = -1e308;
     for (size_t iFrame = 0, iMedian = 0, iBin = 0; iFrame < numFrames; ++iFrame) 
     {
+      // Enforce zero shift for black frames
+      if (isEmpty[iFrame])    continue;
+
+
       imgStack[iFrame].convertTo(frmInput, CV_32F);
       //if (displayProgress)    imshowrange("Image", frmInput, showMin, showMax);
 
@@ -398,11 +402,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
     // Adjust shifts so that they span the range symmetrically
-    midXShift                 = (minXShift + maxXShift) / 2;
-    midYShift                 = (minYShift + maxYShift) / 2;
-    for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
-      xShifts[iFrame]        -= midXShift;
-      yShifts[iFrame]        -= midYShift;
+    if (emptyProb <= 0) {
+      midXShift               = (minXShift + maxXShift) / 2;
+      midYShift               = (minYShift + maxYShift) / 2;
+      for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
+        xShifts[iFrame]      -= midXShift;
+        yShifts[iFrame]      -= midYShift;
+      }
     }
     xShifts                  += numFrames;
     yShifts                  += numFrames;
