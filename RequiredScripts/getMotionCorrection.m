@@ -16,8 +16,12 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     if strcmpi(recompute, 'never')
       forceLoad = true;
       recompute = false;
+    elseif strcmpi(recompute, 'none')
+      varargin{1} = 0;
+      varargin{2} = 1;
+      recompute = false;
     else
-      error('getMotionCorrection:arguments', 'recompute must be either true, false, or the string ''never'' to require that motion correction info already exist.');
+      error('getMotionCorrection:arguments', 'recompute must be either true, false, or the string ''none'', or ''never'' to require that motion correction info already exist.');
     end
   end
   

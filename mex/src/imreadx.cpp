@@ -33,8 +33,7 @@
 
 
 
-/**
-*/
+//_________________________________________________________________________
 template<typename Pixel>
 class ImageProcessor : public cv::MatFunction
 {
@@ -259,7 +258,7 @@ protected:
 
 
 //_________________________________________________________________________
-void checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int firstFrame, const int numFrames, const char* name)
+bool checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int firstFrame, const int numFrames, const char* name)
 {
   const int           numRows     = mxGetM(matShifts);
   const int           numCols     = mxGetN(matShifts);
@@ -280,7 +279,15 @@ void checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int firs
 
   else
     ptrShifts        += firstFrame;
+
+
+  // Check if any of the provided shifts are nonzero
+  for (int iFrame = 0; iFrame < numFrames; ++iFrame)
+    if (ptrShifts[iFrame])
+      return true;
+  return false;
 }
+
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -426,8 +433,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Check that we have enough frame shifts
   if (processor.xShift) {
-    checkNumShifts(prhs[1], processor.xShift, firstFrame, numFrames, "xShift");
-    checkNumShifts(prhs[2], processor.yShift, firstFrame, numFrames, "yShift");
+    const bool                hasXShift       = checkNumShifts(prhs[1], processor.xShift, firstFrame, numFrames, "xShift");
+    const bool                hasYShift       = checkNumShifts(prhs[2], processor.yShift, firstFrame, numFrames, "yShift");
+    if (!hasXShift && !hasYShift) {
+      processor.xShift        = 0;
+      processor.yShift        = 0;
+    }
   }
 
   //---------------------------------------------------------------------------

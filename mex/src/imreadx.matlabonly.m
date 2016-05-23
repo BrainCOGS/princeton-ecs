@@ -35,6 +35,9 @@ function movie = imreadx(inputPath, xShifts, yShifts, xScale, yScale, maxNumFram
   if doTranslate && (isempty(xShifts) ~= isempty(yShifts))
     error('imreadx:arguments', 'If xShifts is provided yShifts must be as well, and vice versa.');
   end
+  if doTranslate && ~any(xShifts(:,end) ~= 0) && ~any(yShifts(:,end) ~= 0)
+    doTranslate       = false;
+  end
   if xScale ~= 1 || yScale ~= 1
     error('imreadx:arguments', 'xScale/yScale not supported yet.');
   end
