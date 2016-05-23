@@ -42,17 +42,10 @@ function movie = imreadx(inputPath, xShifts, yShifts, xScale, yScale, maxNumFram
   
   % Data format
   info                = ecs.imfinfox(inputPath);
-  switch Tiff.SampleFormat.(info.sampleFormat)
-    case Tiff.SampleFormat.UInt
-      dataType        = sprintf('uint%d', info.bitsPerSample);
-    case Tiff.SampleFormat.Int
-      dataType        = sprintf('int%d', info.bitsPerSample);
-    otherwise
-      if info.bitsPerSample <= 32
-        dataType      = 'single';
-      else
-        dataType      = 'double';
-      end
+  if info.bitsPerSample <= 32
+    dataType          = 'single';
+  else
+    dataType          = 'double';
   end
   
   
