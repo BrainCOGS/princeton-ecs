@@ -224,13 +224,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     switch (imgStack[iFrame].depth()) {
     case CV_8U :
       GetSignedUnsignedRange<uchar, schar>()(imgStack[iFrame], signedRange, unsignedRange);
-      if (signedRange < 0.5 * unsignedRange)
+      if (signedRange < 0.5 * unsignedRange) {
+        mexWarnMsgIdAndTxt("motionCorrect:signedData", "Guessed that data is signed 8-bit based on signed range = %.5g vs. unsigned range = %.5g: %s", signedRange, unsignedRange, inputPath);
         typecastCVData(imgStack, origStack, CV_8S);
+      }
       break;
     case CV_16U:
       GetSignedUnsignedRange<ushort, short>()(imgStack[iFrame], signedRange, unsignedRange);
-      if (signedRange < 0.5 * unsignedRange)
+      if (signedRange < 0.5 * unsignedRange) {
+        mexWarnMsgIdAndTxt("motionCorrect:signedData", "Guessed that data is signed 16-bit based on signed range = %.5g vs. unsigned range = %.5g: %s", signedRange, unsignedRange, inputPath);
         typecastCVData(imgStack, origStack, CV_16S);
+      }
       break;
     }
 
