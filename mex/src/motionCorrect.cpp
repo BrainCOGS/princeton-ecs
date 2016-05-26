@@ -38,6 +38,7 @@
 
 
 
+
 double harmonicMean(double Fbound, double Fmean, double Fdev)
 {
   const double        Frange    = (Fbound - Fmean);
@@ -60,6 +61,50 @@ static const char*    METHOD_CORR[]   = { "squaredDifference"
                                         , "correlationCoeff"
                                         , "corrCoeffNormed"
                                         };
+
+
+
+#ifndef __OPENCV_HACK_SAK__
+template<typename Pixel, typename SignedPix>
+struct GetSignedUnsignedRange {
+  void operator()(const cv::Mat& image, double& signedRange, double& unsignedRange) 
+  {
+    // Loop over each pixel in the image 
+    double            minUnsigned = std::numeric_limits<double>::max();
+    double            maxUnsigned = std::numeric_limits<double>::lowest();
+    double            minSigned   = std::numeric_limits<double>::max();
+    double            maxSigned   = std::numeric_limits<double>::lowest();
+    for (int iRow = 0; iRow < image.rows; ++iRow) {
+      const Pixel*    pixRow      = image.ptr<Pixel>(iRow);
+      for (int iCol = 0; iCol < image.cols; ++iCol) {
+        double        unsignedPix = pixRow[iCol];
+        minUnsigned   = std::min(minUnsigned, unsignedPix);
+        maxUnsigned   = std::max(maxUnsigned, unsignedPix);
+
+        double        signedPix   = static_cast<SignedPix>(pixRow[iCol]);
+        minSigned     = std::min(minSigned, signedPix);
+        maxSigned     = std::max(maxSigned, signedPix);
+      } // end loop over columns
+    } // end loop over rows
+
+    unsignedRange     = maxUnsigned - minUnsigned;
+    signedRange       = maxSigned   - minSigned  ;
+  }
+};
+
+
+void typecastCVData(std::vector<cv::Mat>& imgStack, std::vector<cv::Mat>& origStack, int targetType)
+{
+  origStack.swap(imgStack);
+  imgStack.reserve(origStack.size());
+
+  for (size_t iFrame = 0; iFrame < origStack.size(); ++iFrame) {
+    imgStack.push_back(cv::Mat(origStack[iFrame].size(), targetType, (void*) origStack[iFrame].data));
+  }
+}
+#endif //__OPENCV_HACK_SAK__
+
+
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -123,6 +168,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   else if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_UNCHANGED))
       mexErrMsgIdAndTxt( "motionCorrect:load", "Failed to load input image." );
 
+
   // Frame skipping if so desired
   if (frameSkip) {
     if (mxGetNumberOfElements(frameSkip) != 2)
@@ -162,6 +208,38 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   std::vector<bool>           isEmpty;
   if (emptyProb > 0)          cvCall<DetectEmptyFrames>(imgStack, isEmpty, emptyProb);
   else                        isEmpty.assign(imgStack.size(), false);
+
+
+#ifndef __OPENCV_HACK_SAK__
+  //...........................................................................
+  // HACK to fix intrinsic OpenCV problem where signed integer data is loaded as unsigned 
+  // -- detect this condition by seeing if the data range is much more compact when 
+  // converted to signed integers
+  std::vector<cv::Mat>        origStack;
+  for (int iFrame = 0; iFrame < imgStack.size(); ++iFrame) {
+    if (isEmpty[iFrame])      continue;
+
+    // Only consider unsigned integer types
+    double                    signedRange, unsignedRange;
+    switch (imgStack[iFrame].depth()) {
+    case CV_8U :
+      GetSignedUnsignedRange<uchar, schar>()(imgStack[iFrame], signedRange, unsignedRange);
+      if (signedRange < 0.5 * unsignedRange)
+        typecastCVData(imgStack, origStack, CV_8S);
+      break;
+    case CV_16U:
+      GetSignedUnsignedRange<ushort, short>()(imgStack[iFrame], signedRange, unsignedRange);
+      if (signedRange < 0.5 * unsignedRange)
+        typecastCVData(imgStack, origStack, CV_16S);
+      break;
+    }
+
+    break;
+  }
+  //...........................................................................
+#endif //__OPENCV_HACK_SAK__
+
+
 
 
   // Create output structure
