@@ -54,8 +54,10 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     end
   end
 
-  % Stitch together separately corrected stacks 
-  if numel(inputFiles) > 1
+  % Stitch together separately corrected stacks, but only if nontrivial corrections were requested
+  % for any one constituent file (handle special case where motion correction should be turned off)
+  params        = [frameCorr.params];
+  if numel(inputFiles) > 1 && any([params.maxShift] ~= 0)
     refImage    = cat(3, frameCorr.reference);
     fileCorr    = cv.motionCorrect(refImage, varargin{1:min(4,end)});
     if globalRegistration
@@ -65,9 +67,10 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
       end
     end
   else
-    fileCorr    = frameCorr;
-    fileCorr.xShifts  = zeros(numel(inputFiles), 1);
-    fileCorr.yShifts  = zeros(numel(inputFiles), 1);
+    fileCorr    = frameCorr(1);
+    fileCorr.xShifts    = zeros(numel(inputFiles), 1);
+    fileCorr.yShifts    = zeros(numel(inputFiles), 1);
+    fileCorr.reference  = mean(cat(3, frameCorr.reference), 3);
   end
     
 end
