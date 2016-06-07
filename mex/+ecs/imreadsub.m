@@ -69,6 +69,7 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
   
   numFrames       = 0;
   numBinned       = 0;
+  numLeftover     = 0;
   for iFile = 1:numel(imageFiles)
     % Read in the image and apply motion correction shifts
     img           = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
@@ -85,7 +86,25 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
     
     % Additional rebinning if specified
     if ~isempty(addGrouping)
-      binned      = rebin(img, addGrouping, 3);
+      binned      = zeros(size(img,1), size(img,2), 0);
+      if numLeftover > 0
+        index     = addGrouping - numLeftover + 1:size(img,3);
+        if ~isempty(index)
+          binned  = (sum(img(:,:,1:index(1)-1), 3) + leftover) / (index(1) - 1 + numLeftover);
+        end
+      else
+        index     = 1:size(img,3);
+      end
+      
+      if isempty(index)
+        numLeftover = numLeftover + size(img,3);
+        leftover  = leftover + sum(img,3);
+      else
+        numLeftover = rem(index(end) - index(1) + 1, addGrouping);
+        index     = index(1:numel(index) - numLeftover);
+        binned    = cat(3, binned, rebin(img(:,:,index), addGrouping, 3));
+        leftover  = sum(img(:,:,index(end)+1:end), 3);
+      end
     end
     
     
@@ -99,24 +118,24 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
     if ~isempty(pixelIndex)
       % Store only subset of pixels
       img         = reshape(img, [], imgFrames);
-      movie(1:end-1,range)      = img(pixelIndex,:);
-      movie(end    ,range)      = mean(img(remainIndex,:), 1);
+      movie(1:end-1,range)        = img(pixelIndex,:);
+      movie(end    ,range)        = mean(img(remainIndex,:), 1);
       if ~isempty(addGrouping)
-        binnedMovie(:,:,bRange) = binned;
+        binnedMovie(:,:,bRange)   = binned;
       end
       
     elseif numel(imageFiles) == 1
       % If there is only one input file, avoid allocation overhead
-      movie                 = img;
+      movie                       = img;
       if ~isempty(addGrouping)
-        binnedMovie         = binned;
+        binnedMovie               = binned;
       end
       
     else
       % Full frame is stored if pixel indices are not specified
-      movie(:,:,range)      = img;
+      movie(:,:,range)            = img;
       if ~isempty(addGrouping)
-        binnedMovie(:,:,bRange) = binned;
+        binnedMovie(:,:,bRange)   = binned;
       end
     end
     
@@ -126,6 +145,13 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
       numBinned   = numBinned + binFrames;
     end
   end
+  
+  
+  % Don't forget last frame in rebinned movie
+  if numLeftover > 0
+    binnedMovie(:,:,numBinned+1)  = leftover / numLeftover;
+  end
+  
   
   % Output original movie size
   if nargout == 3
