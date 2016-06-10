@@ -34,6 +34,7 @@
 #include "lib/matUtils.h"
 #include "lib/imageStatistics.h"
 #include "lib/manipulateImage.h"
+#include "lib/conversionUtils.h"
 #include "lib/cvToMatlab.h"
 
 
@@ -285,7 +286,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   }
 
 
-
   // Copy frames to temporary storage with the appropriate resolution
   medWeight.assign(numMedian, 1.);
   for (size_t iMedian = 0, iFrame = 0; iMedian < numMedian; ++iMedian) {
@@ -294,7 +294,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     imgShifted[iMedian]       = cv::Scalar(0);
     for (int iBin = 0; iBin < medianRebin; ++iBin, ++iFrame) {
       if (isEmpty[iFrame])    continue;
-      imgShifted[iMedian]    += imgStack[iFrame];
+      cvCall<AddImage32>(imgStack[iFrame], imgShifted[iMedian]);
       ++count;
     }
     if (count)
