@@ -55,7 +55,8 @@ struct MedianVecMat32
         for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
           if (!omit || !(*omit)[iFrame]) {
             traceTemp[nTraces]  = static_cast<float>( pixRow[iFrame][iCol] );
-            ++nTraces;
+            if (traceTemp[nTraces] == traceTemp[nTraces])
+              ++nTraces;        // only keep valid elements (not NaN)
           }
 
         // Store the computed median

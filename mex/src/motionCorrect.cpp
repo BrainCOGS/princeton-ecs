@@ -215,30 +215,32 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // HACK to fix intrinsic OpenCV problem where signed integer data is loaded as unsigned 
   // -- detect this condition by seeing if the data range is much more compact when 
   // converted to signed integers
-  std::vector<cv::Mat>        origStack;
-  for (int iFrame = 0; iFrame < imgStack.size(); ++iFrame) {
-    if (isEmpty[iFrame])      continue;
+  if (inputPath) {
+    std::vector<cv::Mat>      origStack;
+    for (int iFrame = 0; iFrame < imgStack.size(); ++iFrame) {
+      if (isEmpty[iFrame])    continue;
 
-    // Only consider unsigned integer types
-    double                    signedRange, unsignedRange;
-    switch (imgStack[iFrame].depth()) {
-    case CV_8U :
-      GetSignedUnsignedRange<uchar, schar>()(imgStack[iFrame], signedRange, unsignedRange);
-      if (signedRange < 0.5 * unsignedRange) {
-        mexWarnMsgIdAndTxt("motionCorrect:signedData", "Guessed that data is signed 8-bit based on signed range = %.5g vs. unsigned range = %.5g: %s", signedRange, unsignedRange, inputPath);
-        typecastCVData(imgStack, origStack, CV_8S);
+      // Only consider unsigned integer types
+      double                  signedRange, unsignedRange;
+      switch (imgStack[iFrame].depth()) {
+      case CV_8U :
+        GetSignedUnsignedRange<uchar, schar>()(imgStack[iFrame], signedRange, unsignedRange);
+        if (signedRange < 0.5 * unsignedRange) {
+          mexWarnMsgIdAndTxt("motionCorrect:signedData", "Guessed that data is signed 8-bit based on signed range = %.5g vs. unsigned range = %.5g: %s", signedRange, unsignedRange, inputPath);
+          typecastCVData(imgStack, origStack, CV_8S);
+        }
+        break;
+      case CV_16U:
+        GetSignedUnsignedRange<ushort, short>()(imgStack[iFrame], signedRange, unsignedRange);
+        if (signedRange < 0.5 * unsignedRange) {
+          mexWarnMsgIdAndTxt("motionCorrect:signedData", "Guessed that data is signed 16-bit based on signed range = %.5g vs. unsigned range = %.5g: %s", signedRange, unsignedRange, inputPath);
+          typecastCVData(imgStack, origStack, CV_16S);
+        }
+        break;
       }
-      break;
-    case CV_16U:
-      GetSignedUnsignedRange<ushort, short>()(imgStack[iFrame], signedRange, unsignedRange);
-      if (signedRange < 0.5 * unsignedRange) {
-        mexWarnMsgIdAndTxt("motionCorrect:signedData", "Guessed that data is signed 16-bit based on signed range = %.5g vs. unsigned range = %.5g: %s", signedRange, unsignedRange, inputPath);
-        typecastCVData(imgStack, origStack, CV_16S);
-      }
+
       break;
     }
-
-    break;
   }
   //...........................................................................
 #endif //__OPENCV_HACK_SAK__
@@ -285,20 +287,20 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
   // Copy frames to temporary storage with the appropriate resolution
-  int                         scratchType     = imgStack[0].depth();
-  if (scratchType == CV_8U || scratchType == CV_8S)
-    scratchType              += 2;
   medWeight.assign(numMedian, 1.);
   for (size_t iMedian = 0, iFrame = 0; iMedian < numMedian; ++iMedian) {
     int                       count           = 0;
-    imgShifted[iMedian].create(imgStack[0].rows, imgStack[0].cols, scratchType);
+    imgShifted[iMedian].create(imgStack[0].rows, imgStack[0].cols, CV_32F);
+    imgShifted[iMedian]       = cv::Scalar(0);
     for (int iBin = 0; iBin < medianRebin; ++iBin, ++iFrame) {
       if (isEmpty[iFrame])    continue;
       imgShifted[iMedian]    += imgStack[iFrame];
       ++count;
     }
-    if (count > 1)
+    if (count)
       medWeight[iMedian]      = 1. / count;
+    else 
+      imgShifted[iMedian]     = cv::Scalar(mxGetNaN());
   }
 
                                                                             
@@ -389,10 +391,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     double                    minXShift       = 1e308, maxXShift = -1e308;
     double                    minYShift       = 1e308, maxYShift = -1e308;
     maxRelShift               = -1e308;
-    for (size_t iFrame = 0, iMedian = 0, iBin = 0; iFrame < numFrames; ++iFrame) 
+    for (size_t iFrame = 0, iMedian = 0, iBin = 0, isFirst = true; iFrame < numFrames; ++iFrame) 
     {
       // Enforce zero shift for black frames
-      if (isEmpty[iFrame])    continue;
+      if (isEmpty[iFrame]) {
+        if (++iBin >= medianRebin) {
+          iBin                = 0;
+          isFirst             = true;
+          ++iMedian;
+        }
+        continue;
+      }
 
 
       imgStack[iFrame].convertTo(frmInput, CV_32F);
@@ -472,13 +481,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
       // Aggregate frames for median computation if so requested
-      if (medianRebin > 1 && iMedian < numMedian) {
-        if (iBin == 0)        frmShifted.copyTo(imgShifted[iMedian]);
-        else                  imgShifted[iMedian] += frmShifted;
-        if (++iBin >= medianRebin) {
-          iBin                = 0;
-          ++iMedian;
-        }
+      if (iMedian >= numMedian)
+        mexErrMsgIdAndTxt( "motionCorrect:sanity", "Invalid median bin %d >= %d, should not be possible.", iMedian, numMedian);
+      if (isFirst) {
+        isFirst               = false;
+        frmShifted.copyTo(imgShifted[iMedian]);
+      }
+      else 
+        imgShifted[iMedian] += frmShifted;
+      if (++iBin >= medianRebin) {
+        iBin                  = 0;
+        isFirst               = true;
+        ++iMedian;
       }
     } // end loop over frames
 
