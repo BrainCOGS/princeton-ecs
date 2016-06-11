@@ -190,12 +190,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // The frame rebinning factor (for computation of median only) must be a divisor of
   // the number of frames to avoid edge artifacts
   const size_t                numFrames       = imgStack.size();
-  size_t                      numMedian       = static_cast<size_t>( imgStack.size() / medianRebin );
-  if (numMedian < 1) {
-    mexWarnMsgIdAndTxt( "motionCorrect:arguments", "The number of frames to aggregate (medianRebin = %d) is larger than the number of frames (%d); this is equivalent to using the mean.", medianRebin, numFrames );
-    numMedian                 = 1;
-    medianRebin               = imgStack.size();
-  }
+  size_t                      numMedian       = static_cast<size_t>(std::ceil( 1.0 * imgStack.size() / medianRebin ));
 
 
 
@@ -292,7 +287,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int                       count           = 0;
     imgShifted[iMedian].create(imgStack[0].rows, imgStack[0].cols, CV_32F);
     imgShifted[iMedian]       = cv::Scalar(0);
-    for (int iBin = 0; iBin < medianRebin; ++iBin, ++iFrame) {
+    for (int iBin = 0; iBin < medianRebin && iFrame < numFrames; ++iBin, ++iFrame) {
       if (isEmpty[iFrame])    continue;
       cvCall<AddImage32>(imgStack[iFrame], imgShifted[iMedian]);
       ++count;
