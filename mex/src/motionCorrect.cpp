@@ -211,8 +211,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // HACK to fix intrinsic OpenCV problem where signed integer data is loaded as unsigned 
   // -- detect this condition by seeing if the data range is much more compact when 
   // converted to signed integers
+  std::vector<cv::Mat>        origStack;
   if (inputPath) {
-    std::vector<cv::Mat>      origStack;
     for (int iFrame = 0; iFrame < imgStack.size(); ++iFrame) {
       if (isEmpty[iFrame])    continue;
 
@@ -273,12 +273,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   cv::Mat                     translator(2, 3, CV_32F);
   float*                      xTrans          = translator.ptr<float>(0);
   float*                      yTrans          = translator.ptr<float>(1);
-  if (subPixelReg) {
-    xTrans[0]                 = 1;
-    xTrans[1]                 = 0;
-    yTrans[0]                 = 0;
-    yTrans[1]                 = 1;
-  }
+  translator                  = cv::Scalar(0);
+  xTrans[0]                   = 1;
+  yTrans[1]                   = 1;
 
 
   // Copy frames to temporary storage with the appropriate resolution
