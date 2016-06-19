@@ -24,38 +24,53 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
       error('getMotionCorrection:arguments', 'recompute must be either true, false, or the string ''none'', or ''never'' to require that motion correction info already exist.');
     end
   end
+
+  % Parallel pool preferences
+  parSettings                   = parallel.Settings;
+  origAutoCreate                = parSettings.Pool.AutoCreate;
+  parSettings.Pool.AutoCreate   = false;
+
   
 
-  frameCorr     = struct([]);
-  isFirst       = true;
+  % Check for existing correction files
+  frameCorr     = cell(size(inputFiles));
+  corrPath      = cell(size(inputFiles));
   for iFile = 1:numel(inputFiles)
     [dir,name]  = parsePath(inputFiles{iFile});
-    corrPath    = fullfile(dir, [name '.mcorr.mat']);
+    corrPath{iFile}     = fullfile(dir, [name '.mcorr.mat']);
 
-    if ~recompute && exist(corrPath, 'file')
-      load(corrPath);
+    if ~recompute && exist(corrPath{iFile}, 'file')
+      mcorr     = load(corrPath{iFile});
+      frameCorr{iFile}  = mcorr.mcorr;
     elseif forceLoad
-      error('getMotionCorrection:nodata', 'Motion correction information file "%s" not found.', corrPath);
-    else
-      if isFirst
-        isFirst = false;
-        fprintf(' ... motion correcting');
-      end
-      startTime = tic;
-      mcorr     = cv.motionCorrect(inputFiles{iFile}, varargin{:});
-      fprintf(' (%.3g min)', toc(startTime)/60);
-      save(corrPath, 'mcorr');
-    end
-
-    if isempty(frameCorr)
-      frameCorr         = mcorr;
-    else
-      frameCorr(end+1)  = mcorr;
+      error('getMotionCorrection:nodata', 'Motion correction information file "%s" not found.', corrPath{iFile});
     end
   end
 
+  % Compute remaining correction factors
+  iCompute      = find(cellfun(@isempty, frameCorr));
+  if ~isempty(iCompute)
+    fprintf(' ... motion correcting');
+    
+    newCorr     = cell(size(iCompute));
+    corrInput   = inputFiles(iCompute);
+    corrPath    = corrPath(iCompute);
+    parfor iFile = 1:numel(iCompute)
+      startTime = tic;
+      mcorr     = cv.motionCorrect(corrInput{iFile}, varargin{:});
+      fprintf(' (%.3g min)', toc(startTime)/60);
+      
+      output    = corrPath{iFile};
+      parsave(output, mcorr);
+      newCorr{iFile}    = mcorr;
+    end
+    frameCorr(iCompute) = newCorr;
+  end  
+  
+  
   % Stitch together separately corrected stacks, but only if nontrivial corrections were requested
   % for any one constituent file (handle special case where motion correction should be turned off)
+  frameCorr     = [frameCorr{:}];
   params        = [frameCorr.params];
   if numel(inputFiles) > 1 && any([params.maxShift] ~= 0)
     refImage    = cat(3, frameCorr.reference);
@@ -72,5 +87,8 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     fileCorr.yShifts    = zeros(numel(inputFiles), 1);
     fileCorr.reference  = mean(cat(3, frameCorr.reference), 3);
   end
-    
+
+  % Restore parallel pool settings
+  parSettings.Pool.AutoCreate   = origAutoCreate;
+  
 end

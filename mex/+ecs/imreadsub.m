@@ -99,6 +99,9 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
       if isempty(index)
         numLeftover = numLeftover + size(img,3);
         leftover  = leftover + sum(img,3);
+      elseif index(end) - index(1) + 1 < addGrouping
+        numLeftover = index(end) - index(1) + 1;
+        leftover  = sum(img, 3);
       else
         numLeftover = rem(index(end) - index(1) + 1, addGrouping);
         index     = index(1:numel(index) - numLeftover);
