@@ -1,5 +1,5 @@
 %% IMREADSUB      Loads multiple image stacks into memory, applying motion correction and downsampling
-function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, varargin)
+function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, varargin)
 
   % Default arguments
   if nargin < 3
@@ -42,7 +42,7 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
   % Compute movie size
   info            = ecs.imfinfox(imageFiles);
   dataType        = class(motionCorr(1).reference);
-  totalFrames     = sum(ceil(info.fileFrames / frameGrouping));
+  totalFrames     = ceil(sum(info.fileFrames) / frameGrouping);
   inputSize       = [frameSize, totalFrames];
   if isempty(pixelIndex)
     movieSize     = inputSize;
@@ -62,105 +62,108 @@ function [movie, binnedMovie, varargout] = imreadsub(imageFiles, motionCorr, fra
   % Preallocate output
   if numel(imageFiles) > 1 || ~isempty(pixelIndex)
     movie         = zeros(movieSize, dataType);
-    if ~isempty(addGrouping)
-      binnedMovie = zeros([frameSize, ceil(totalFrames/addGrouping)], dataType);
-    end
+  end
+  if isempty(addGrouping)
+    binnedMovie   = [];
+  else
+    binnedMovie   = zeros([frameSize, ceil(sum(info.fileFrames) / frameGrouping / addGrouping)], dataType);
   end
   
-  numFrames       = 0;
-  numBinned       = 0;
-  numLeftover     = 0;
+  
+  out             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
+  sub             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
   for iFile = 1:numel(imageFiles)
     % Read in the image and apply motion correction shifts
     img           = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
     
-    % Rebin if so desired
-    if ~isempty(frameGrouping) && frameGrouping > 1
-      img         = rebin(img, frameGrouping, 3);
-    end
-  
     % Crop border if so requested
     if ~isempty(cropping)
       img         = rectangularSubset(img, cropping.selectMask, cropping.selectSize, 1);
     end
     
+    % Rebin if so desired
+    if ~isempty(frameGrouping) && frameGrouping > 1
+      [img, range, out]       ...
+                  = onTheFlyRebin(img, frameGrouping, out);
+    else
+      range       = out.nFrames + (1:size(img,3));
+      out.nFrames = out.nFrames + size(img,3);
+    end
+  
     % Additional rebinning if specified
     if ~isempty(addGrouping)
-      binned      = zeros(size(img,1), size(img,2), 0);
-      if numLeftover > 0
-        index     = addGrouping - numLeftover + 1:size(img,3);
-        if ~isempty(index)
-          binned  = (sum(img(:,:,1:index(1)-1), 3) + leftover) / (index(1) - 1 + numLeftover);
-        end
-      else
-        index     = 1:size(img,3);
-      end
-      
-      if isempty(index)
-        numLeftover = numLeftover + size(img,3);
-        leftover  = leftover + sum(img,3);
-      elseif index(end) - index(1) + 1 < addGrouping
-        numLeftover = index(end) - index(1) + 1;
-        leftover  = sum(img, 3);
-      else
-        numLeftover = rem(index(end) - index(1) + 1, addGrouping);
-        index     = index(1:numel(index) - numLeftover);
-        binned    = cat(3, binned, rebin(img(:,:,index), addGrouping, 3));
-        leftover  = sum(img(:,:,index(end)+1:end), 3);
-      end
+      [binned, bRange, sub]   ...
+                  = onTheFlyRebin(img, addGrouping, sub);
+      binnedMovie(:,:,bRange)     = binned;
     end
-    
-    
-    imgFrames     = size(img,3);
-    range         = numFrames + (1:imgFrames);
-    if ~isempty(addGrouping)
-      binFrames   = size(binned,3);
-      bRange      = numBinned + (1:binFrames);
-    end
+
     
     if ~isempty(pixelIndex)
       % Store only subset of pixels
-      img         = reshape(img, [], imgFrames);
+      img         = reshape(img, [], size(img,3));
       movie(1:end-1,range)        = img(pixelIndex,:);
       movie(end    ,range)        = mean(img(remainIndex,:), 1);
-      if ~isempty(addGrouping)
-        binnedMovie(:,:,bRange)   = binned;
-      end
       
     elseif numel(imageFiles) == 1
       % If there is only one input file, avoid allocation overhead
       movie                       = img;
-      if ~isempty(addGrouping)
-        binnedMovie               = binned;
-      end
       
     else
       % Full frame is stored if pixel indices are not specified
       movie(:,:,range)            = img;
-      if ~isempty(addGrouping)
-        binnedMovie(:,:,bRange)   = binned;
-      end
-    end
-    
-    % Increment frame counts
-    numFrames     = numFrames + imgFrames;
-    if ~isempty(addGrouping)
-      numBinned   = numBinned + binFrames;
     end
   end
   
   
-  % Don't forget last frame in rebinned movie
-  if numLeftover > 0
-    binnedMovie(:,:,numBinned+1)  = leftover / numLeftover;
+  % Don't forget last frame in rebinned movies
+  if out.nLeft > 0
+    if isempty(pixelIndex)
+      movie(:,:,out.nFrames+1)      = out.leftover / out.nLeft;
+    else
+      img         = reshape(out.leftover, [], 1);
+      movie(1:end-1,out.nFrames+1)  = img(pixelIndex,:);
+      movie(end    ,out.nFrames+1)  = mean(img(remainIndex,:), 1);
+    end
+  end
+  if sub.nLeft > 0
+    binnedMovie(:,:,sub.nFrames+1)= sub.leftover / sub.nLeft;
   end
   
+end
+
+
+%%
+function [binned, binRange, info] = onTheFlyRebin(img, binsPerGroup, info)
   
-  % Output original movie size
-  if nargout == 3
-    varargout     = {inputSize};
+  % Preallocate output
+  binned          = zeros(size(img,1), size(img,2), 0);
+  
+  % Get range of indices excluding those owed to a leftover bin
+  if info.nLeft > 0
+    index         = binsPerGroup - info.nLeft + 1:size(img,3);
+    if ~isempty(index)
+      binned      = (sum(img(:,:,1:index(1)-1), 3) + info.leftover) / (index(1) - 1 + info.nLeft);
+    end
   else
-    varargout     = num2cell(inputSize);
+    index         = 1:size(img,3);
+  end
+
+  % Collect rebinned movie and leftover frames
+  if isempty(index)
+    info.nLeft    = info.nLeft + size(img,3);
+    info.leftover = info.leftover + sum(img,3);
+  elseif index(end) - index(1) + 1 < binsPerGroup
+    info.nLeft    = index(end) - index(1) + 1;
+    info.leftover = sum(img, 3);
+  else
+    info.nLeft    = rem(index(end) - index(1) + 1, binsPerGroup);
+    index         = index(1:numel(index) - info.nLeft);
+    binned        = cat(3, binned, rebin(img(:,:,index), binsPerGroup, 3));
+    info.leftover = sum(img(:,:,index(end)+1:end), 3);
   end
   
+  % Output range in which to store binned movie
+  binRange        = info.nFrames + (1:size(binned,3));
+  info.nFrames    = info.nFrames + size(binned,3);
+    
 end
