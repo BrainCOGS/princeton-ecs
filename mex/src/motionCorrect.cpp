@@ -129,6 +129,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const bool                  displayProgress = ( nrhs >  3 ? mxGetScalar(prhs[3]) > 0     : false  );
   const double                stopBelowShift  = ( nrhs >  4 ? mxGetScalar(prhs[4])         : 0.     );
   const double                emptyProb       = ( nrhs >  5 ? mxGetScalar(prhs[5])         : -999.  );
+  double*                     usrBlackValue   = ( nrhs >  5 && mxGetNumberOfElements(prhs[5]) > 1 ? mxGetPr(prhs[5]) : 0 );
   int                         medianRebin     = ( nrhs >  6 ? int( mxGetScalar(prhs[6]) )  : 1      );
   const mxArray*              frameSkip       = ( nrhs >  7 ? prhs[7]                      : 0      );
   const int                   methodInterp    = ( nrhs >  8 ? int( mxGetScalar(prhs[8]) )  : cv::InterpolationFlags::INTER_LINEAR     );
@@ -202,8 +203,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // If so desired, omit black (empty) frames
   std::vector<bool>           isEmpty;
-  if (emptyProb > 0)          cvCall<DetectEmptyFrames>(imgStack, isEmpty, emptyProb);
-  else                        isEmpty.assign(imgStack.size(), false);
+  double                      blackValue      = mxGetNaN();
+  if (emptyProb > 0) {
+    if (usrBlackValue)        blackValue      = usrBlackValue[1];
+    double*                   ptrZeroValue    = &blackValue;
+    cvCall<DetectEmptyFrames>(imgStack, isEmpty, emptyProb, ptrZeroValue);
+  }
+  else isEmpty.assign(imgStack.size(), false);
 
 
 #ifndef __OPENCV_HACK_SAK__
@@ -521,6 +527,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   float*                      ptrRef          = (float*) mxGetData(outRef);
   cvMatlabCall<MatToMatlab>(imgRef, mxGetClassID(outRef), ptrRef);
 
+  // Black frames detection parameters
+  mxArray*                    outBlackTol     = mxCreateDoubleMatrix(1, 2, mxREAL);
+  double*                     ptrBlackTol     = mxGetPr(outBlackTol);
+  ptrBlackTol[0]              = emptyProb;
+  ptrBlackTol[1]              = blackValue;
+
   // Parameters
   static const char*          PARAM_FIELDS[]  = { "maxShift"
                                                 , "maxIter"
@@ -535,7 +547,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   mxSetField(outParams, 0, "maxShift"      , mxCreateDoubleScalar(maxShift));
   mxSetField(outParams, 0, "maxIter"       , mxCreateDoubleScalar(maxIter));
   mxSetField(outParams, 0, "stopBelowShift", mxCreateDoubleScalar(stopBelowShift));
-  mxSetField(outParams, 0, "blackTolerance", mxCreateDoubleScalar(emptyProb));
+  mxSetField(outParams, 0, "blackTolerance", outBlackTol);
   mxSetField(outParams, 0, "medianRebin"   , mxCreateDoubleScalar(medianRebin));
   if (frameSkip)              mxSetField(outParams, 0, "frameSkip", mxDuplicateArray(frameSkip));
   else                        mxSetField(outParams, 0, "frameSkip", mxCreateDoubleMatrix(0, 0, mxREAL));

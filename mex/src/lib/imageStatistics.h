@@ -122,26 +122,36 @@ struct CountPixelsInRange
 template<typename Pixel>
 struct DetectEmptyFrames
 {
-  void operator()(const std::vector<cv::Mat>& stack, std::vector<bool>& isEmpty, double emptyProb, double emptyNSigmas = 5)
+  void operator()(const std::vector<cv::Mat>& stack, std::vector<bool>& isEmpty, double emptyProb, double*& zeroValue, double emptyNSigmas = 5)
   {
     // Special case for empty stacks
     isEmpty.resize(stack.size());
     if (stack.empty())        return;
 
 
-    // Use the first frame to estimate the black level and variance
-    SampleStatistics          statistics;
+    // Short circuit in case the zero level has been precomputed
+    double                    maxZeroValue  = -1e308;
+    if (zeroValue && mxIsFinite(*zeroValue)) {
+      maxZeroValue            = *zeroValue;
+    }
+
+    else {
+      // Use the first frame to estimate the black level and variance
+      SampleStatistics        statistics;
+      cvCall<AccumulateMatStatistics>(stack[0], statistics);
+
+      // Account for multiple samples when computing the fraction of pixels that are
+      // expected to fall below the zero + noise threshold
+      isEmpty[0]              = true;       // by definition
+      const Pixel             offset        = static_cast<Pixel>( statistics.getMean() );
+      maxZeroValue            = offset + emptyNSigmas * statistics.getRMS();
+      if (zeroValue)         *zeroValue     = maxZeroValue;
+    }
+
+
+    // Iterate through frames and decide if each one is completely black
     const int                 nFramePixels  = stack[0].rows * stack[0].cols;
-    cvCall<AccumulateMatStatistics>(stack[0], statistics);
-
-    // Account for multiple samples when computing the fraction of pixels that are
-    // expected to fall below the zero + noise threshold
-    isEmpty[0]                = true;       // by definition
     emptyProb                 = std::pow(emptyProb, nFramePixels);
-    const Pixel               offset        = static_cast<Pixel>( statistics.getMean() );
-    const double              maxZeroValue  = offset + emptyNSigmas * statistics.getRMS();
-
-
     for (size_t iFrame = 0; iFrame < stack.size(); ++iFrame)
     {
       static const double     negInf        = -std::numeric_limits<double>::infinity();
