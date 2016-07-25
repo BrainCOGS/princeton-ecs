@@ -11,6 +11,7 @@
 
 
 #include <mex.h>
+#include <cmath>
 #include "lib/imageFilter.h"
 #include "lib/quickSelect.h"
 

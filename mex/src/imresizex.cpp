@@ -67,7 +67,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Create output structure
-  size_t                      dimension[]     = {imgHeight, imgWidth, numFrames};
+  size_t                      dimension[]     = {size_t(imgHeight), size_t(imgWidth), numFrames};
   plhs[0]                     = mxCreateNumericArray(3, dimension, mxSINGLE_CLASS, mxREAL);
   const int                   nFramePixels    = imgHeight * imgWidth;
   const void*                 srcData         = mxGetData(source);

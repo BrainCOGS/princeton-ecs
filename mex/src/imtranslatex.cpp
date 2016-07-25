@@ -136,7 +136,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   CondenserInfo2D*            condenserInfo   = &condenser;
 
   // Call workhorse function
-  size_t                      outDimension[]  = {imgHeight, imgWidth, numFrames};
+  size_t                      outDimension[]  = {size_t(imgHeight), size_t(imgWidth), numFrames};
   plhs[0]                     = mxCreateNumericArray(3, outDimension, mxGetClassID(input), mxREAL);
   void*                       target          = mxGetData(plhs[0]);
   const bool*                 masked          = ( nanMask ? (const bool*) mxGetData(nanMask) : 0 );

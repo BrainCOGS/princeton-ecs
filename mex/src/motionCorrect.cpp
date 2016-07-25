@@ -198,7 +198,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // The template size restricts the maximum allowable shift
   const int                   firstRefRow     = std::min(maxShift, (imgStack[0].rows - 1)/2);
   const int                   firstRefCol     = std::min(maxShift, (imgStack[0].cols - 1)/2);
-  const size_t                metricSize[]    = {2*firstRefRow + 1, 2*firstRefCol + 1, numFrames};
+  const size_t                metricSize[]    = {size_t(2*firstRefRow + 1), size_t(2*firstRefCol + 1), numFrames};
   const int                   metricOffset    = metricSize[0] * metricSize[1];
 
   // If so desired, omit black (empty) frames
@@ -591,7 +591,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Output corrected movie if so desired
   if (nlhs > 1) {
-    const size_t              dimensions[]    = {imgShifted[0].rows, imgShifted[0].cols, imgShifted.size()};
+    const size_t              dimensions[]    = {size_t(imgShifted[0].rows), size_t(imgShifted[0].cols), size_t(imgShifted.size())};
     plhs[1]                   = mxCreateNumericArray(3, dimensions, mxSINGLE_CLASS, mxREAL);
     void*                     outPtr          = mxGetData(plhs[1]);
     cvMatlabCall<MatToMatlab>(imgShifted, mxGetClassID(plhs[1]), outPtr);

@@ -1,5 +1,7 @@
 *.asv
 *.bak
 *.pdb
+*.o
+*.obj
 version.txt
 /mex/+cv/imreadx.m
