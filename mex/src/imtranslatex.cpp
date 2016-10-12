@@ -128,6 +128,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Ensure proper size of masks
   if (nanMask && (mxGetM(nanMask) != srcHeight || mxGetN(nanMask) != srcWidth))
     mexErrMsgIdAndTxt( "imtranslatex:load", "Incorrect size of nanMask, must be equal to original image size (width = %d, height = %d).", srcWidth, srcHeight);
+  if (mxGetNumberOfElements(prhs[1]) < numFrames || mxGetNumberOfElements(prhs[2]) < numFrames)
+    mexErrMsgIdAndTxt( "imtranslatex:input", "Insufficient number of shifts provided, must be at least the number of image frames %d.", numFrames);
+
 
   // Adjust for scaling 
   int                         imgWidth        = cvRound(srcWidth  * xScale);
