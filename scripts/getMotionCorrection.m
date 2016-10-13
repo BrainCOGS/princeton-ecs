@@ -36,7 +36,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   frameCorr     = cell(size(inputFiles));
   corrPath      = cell(size(inputFiles));
   for iFile = 1:numel(inputFiles)
-    [dir,name]  = parsePath(inputFiles{iFile});
+    [dir,name]  = fileparts(inputFiles{iFile});
     corrPath{iFile}     = fullfile(dir, [name '.mcorr.mat']);
 
     if ~recompute && exist(corrPath{iFile}, 'file')
@@ -61,7 +61,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
       fprintf(' (%.3g min)', toc(startTime)/60);
       
       output    = corrPath{iFile};
-      parsave(output, mcorr);
+      parallelSave(output, mcorr);
       newCorr{iFile}    = mcorr;
     end
     frameCorr(iCompute) = newCorr;
