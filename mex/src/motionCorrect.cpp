@@ -21,6 +21,13 @@
   reduce the amount of time required to motion correct, and also to obtain a sensible 
   template for data that is very noisy or close to zero per frame.
 
+  The frameSkip parameter allows one to subsample the input movie in terms of frames.
+  It should be provided as a pair [offset, skip] where offset is the first frame to
+  read, and skip is the number of frames to skip between reads. For example, 
+  frameSkip = [1 1] will start reading from the *second* frame and skip every other 
+  frame, i.e. read all even frames for motion correction. The produced shifts will
+  thus be fewer than the full movie and equal to the number of subsampled frames.
+
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
 
