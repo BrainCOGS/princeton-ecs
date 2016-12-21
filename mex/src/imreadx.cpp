@@ -12,7 +12,8 @@
 
   maxNumFrames = nan can be used to return only the statistics structure, which saves on memory load in 
   case the image stack is very large. Note that the median image cannot be computed in this case because
-  it requires the full stack to be in memory.
+  it requires the full stack to be in memory. Alternatively one can specify:
+    [minFrame, maxFrame, frameSkip = 0]
  
   If sub-pixel registration is requested, cv::warpAffine() is used.
 
@@ -263,6 +264,7 @@ bool checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int firs
   const int           numRows     = mxGetM(matShifts);
   const int           numCols     = mxGetN(matShifts);
   const int           numShifts   = mxGetNumberOfElements(matShifts);
+  
 
   if (numCols > 1 || numRows > 1) {
     if (numRows - firstFrame < numFrames)
@@ -298,7 +300,7 @@ bool checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int firs
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 1 || nrhs > 11 || nlhs > 3) {
+  if (nrhs < 1 || nrhs > 12 || nlhs > 3) {
     mexEvalString("help cv.imreadx");
     mexErrMsgIdAndTxt ( "imreadx:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -335,6 +337,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                               processor.methodResize  = ( nrhs > 10 ? int( mxGetScalar(prhs[10]) ) : cv::InterpolationFlags::INTER_AREA   );
 
   int                         firstFrame              = 0;
+  int                         frameSkip               = 0;
   if (nrhs > 5) {
     switch (mxGetNumberOfElements(prhs[5])) {
     case 0:
@@ -347,17 +350,33 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       {
         const double*         frameRange              = mxGetPr(prhs[5]);
         firstFrame            = cv::saturate_cast<int>(frameRange[0]) - 1;
-        processor.maxNumFrames= cv::saturate_cast<int>(frameRange[1]) - firstFrame;
+        processor.maxNumFrames= mxIsInf(frameRange[1])
+                              ? std::numeric_limits<int>::max()
+                              : cv::saturate_cast<int>(frameRange[1]) - firstFrame
+                              ;
+      }
+      break;
+    case 3:
+      {
+        const double*         frameRange              = mxGetPr(prhs[5]);
+        firstFrame            = cv::saturate_cast<int>(frameRange[0]) - 1;
+        processor.maxNumFrames= mxIsInf(frameRange[1])
+                              ? std::numeric_limits<int>::max()
+                              : cv::saturate_cast<int>(frameRange[1]) - firstFrame
+                              ;
+        frameSkip             = cv::saturate_cast<int>(frameRange[2]);
       }
       break;
     default:
-      mexErrMsgIdAndTxt( "imreadx:arguments", "maxNumFrames must be a scalar or a range [min,max].");
+      mexErrMsgIdAndTxt( "imreadx:arguments", "maxNumFrames must be a scalar or a range [min,max] or [min,max,frameSkip].");
     }
   }
 
 
 
   // Sanity checks
+  if (firstFrame < 0)
+    mexErrMsgIdAndTxt( "imreadx:load", "First frame (as provided via the maxNumFrames argument) must be a positive integer.");
   if ((processor.xShift == 0) != (processor.yShift == 0))
     mexErrMsgIdAndTxt( "imreadx:load", "If xShift is provided, yShift must be provided as well, and vice versa.");
   if ((processor.xScale <= 0) != (processor.yScale <= 0))
@@ -406,8 +425,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   //---------------------------------------------------------------------------
   // Create output structure
+  const int                   outFrames       = static_cast<int>( std::ceil( 1.0 * numFrames / (1 + frameSkip) ) );
   if (storeStack) {
-    size_t                    dimension[]     = {imgHeight, imgWidth, numFrames};
+    size_t                    dimension[]     = {imgHeight, imgWidth, outFrames};
     plhs[0]                   = mxCreateNumericArray(3, dimension, mxSINGLE_CLASS, mxREAL);
     processor.frameOffset     = processor.nFramePixels;
   } else {
@@ -433,8 +453,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Check that we have enough frame shifts
   if (processor.xShift) {
-    const bool                hasXShift       = checkNumShifts(prhs[1], processor.xShift, firstFrame, numFrames, "xShift");
-    const bool                hasYShift       = checkNumShifts(prhs[2], processor.yShift, firstFrame, numFrames, "yShift");
+    const bool                hasXShift       = checkNumShifts(prhs[1], processor.xShift, firstFrame, outFrames, "xShift");
+    const bool                hasYShift       = checkNumShifts(prhs[2], processor.yShift, firstFrame, outFrames, "yShift");
     if (!hasXShift && !hasYShift) {
       processor.xShift        = 0;
       processor.yShift        = 0;
@@ -444,14 +464,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   //---------------------------------------------------------------------------
   // Call the stack processor
   if (inputPath.size() == 1) {
-    cv::imreadmulti(inputPath[0], &processor, cv::ImreadModes::IMREAD_UNCHANGED, firstFrame);
+    cv::imreadmulti(inputPath[0], &processor, cv::ImreadModes::IMREAD_UNCHANGED, firstFrame, frameSkip);
   }
   else {
     mexPrintf("       ");
     for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) {
       mexPrintf("\b\b\b\b\b\b\b%3d/%-3d", iIn+1, inputPath.size());
       mexEvalString("drawnow");
-      if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED, firstFrame))
+      if (!cv::imreadmulti(inputPath[iIn], &processor, cv::ImreadModes::IMREAD_UNCHANGED, firstFrame, frameSkip))
         break;
       firstFrame              = 0;
     }
@@ -484,7 +504,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Compute median if so requested
   if (computeMedian) {
-    std::vector<float>        traceTemp(numFrames);
+    std::vector<float>        traceTemp(outFrames);
     plhs[2]                   = mxCreateNumericMatrix(imgHeight, imgWidth, mxSINGLE_CLASS, mxREAL);
     float*                    medData         = (float*) mxGetData(plhs[2]);
 
@@ -494,7 +514,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       for (size_t iRow = 0; iRow < imgHeight; ++iRow) {
         // Copy the stack of pixels into temporary storage
         int                   nTrace          = 0;
-        for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
+        for (size_t iFrame = 0; iFrame < outFrames; ++iFrame) {
           const float         pixValue        = pixCol[iFrame * processor.nFramePixels];
           if (!mxIsNaN(pixValue)) {
             traceTemp[nTrace] = pixValue;
