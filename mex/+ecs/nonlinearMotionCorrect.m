@@ -1,46 +1,74 @@
-function mc = nonlinearMotionCorrect ( inputPath, maxShift, maxIter, displayProgress  ... maxShift = [rigid,patch]
-                                     , varargin                                       ... unused but retained for compatibility with cv.motionCorrect()
-                                     )
+function mc = nonlinearMotionCorrect(movie, cropping, maxShift, maxIter, stopBelowShift, patchSize, numPatches)
      
   %% Default arguments
-  if nargin < 4
-    displayProgress     = false;
+  if nargin < 5
+    stopBelowShift      = 0;
   end
-
-  %% Load data
-  if ischar(inputPath)
-    movie               = cv.imreadx(inputPath);
-  else
-    movie               = inputPath;
+  if nargin < 6
+    patchSize           = [128 128];
+%     patchSize           = [100 100];
+  elseif numel(patchSize) < 2
+    patchSize           = [patchSize patchSize];
   end
-
-  %% Convert to options for online_motion_correction_patches()
-  [nRows,nCols,nFrames] = size(movie);
-  options               = NoRMCorreSetParms ( 'd1'          , nRows               ... 
-                                            , 'd2'          , nCols               ... 
-                                            , 'grid_size'   , [64,64]             ... size of non-overlapping portion of the grid in each direction (x-y-z)
-                                            , 'overlap_pre' , 32                  ... size of overlapping region in each direction before upsampling
-                                            , 'mot_uf'      , 4                   ... upsampling factor for smoothing and refinement of motion field
-                                            , 'overlap_post', 32                  ... size of overlapping region in each direction after upsampling
-                                            , 'bin_width'   , 100                 ... length of bin over which the registered frames are averaged to update the template
-                                            , 'max_shift'   , maxShift(1)         ... maximum allowed shift for rigid translation
-                                            , 'max_dev'     , maxShift(2)         ... maximum deviation of each patch from estimated rigid translation
-                                            , 'us_fac'      , 50                  ... upsampling factor for subpixel registration
-                                            , 'iter'        , maxIter             ... number of times to go over the dataset
-                                            , 'use_parallel', true                ... use parfor when breaking each frame into patches
-                                            , 'plot_flag'   , displayProgress     ...
-                                            );
+  if nargin < 7
+    numPatches          = [10 10];
+  elseif numel(patchSize) < 2
+    numPatches          = [numPatches numPatches];
+  end
   
 
-  %% Run nonlinear registration
-  mc                    = struct();
-  [corrected, mc.shifts, mc.reference, mc.params]      ...
-                        = normcorre_batch(movie, options);
+  %% 
+  inputSize             = size(movie);
+  numFrames             = inputSize(end);
+  patchSpan             = cell(size(patchSize));
+  for iDim = 1:numel(patchSize)
+    startRange          = [cropping.range(iDim,1), cropping.range(iDim,2) - patchSize(iDim) + 1];
+    patchStart          = linspace(startRange(1), startRange(2), numPatches(iDim));
+    patchStart          = min(max(round(patchStart), startRange(1)), startRange(2));
+    patchSpan{iDim}     = bsxfun(@plus, (0:patchSize(iDim)-1)', patchStart);
+  end
   
-                      
-  %% Create output structure in the same format as cv.motionCorrect()
-  mc.inputSize          = size(movie);
-  mc.method             = 'ecs.nonlinearMotionCorrect';
-  mc.params.maxIter     = maxIter;
+  %%
+  moviePatch            = cell(numPatches);
+  for iRow = 1:numPatches(1)
+    for iCol = 1:numPatches(2)
+      moviePatch{iRow,iCol} = movie( patchSpan{1}(:,iRow), patchSpan{2}(:,iCol), : );
+    end
+  end
+  
+  %%
+  tic
+  patchCorr             = cell(size(moviePatch));
+  parfor iPatch = 1:numel(patchCorr)
+    patchCorr{iPatch}   = cv.motionCorrect( moviePatch{iPatch}, maxShift, maxIter, false, stopBelowShift, nan, 10, [0 0], false );
+  end
+  toc
+  patchCorr             = reshape([patchCorr{:}], size(patchCorr));
 
+  %%
+  patchXShifts          = single(reshape( accumfun(1, @(x) x.xShifts(:,end)', patchCorr), [numPatches,numFrames] ));
+  patchYShifts          = single(reshape( accumfun(1, @(x) x.yShifts(:,end)', patchCorr), [numPatches,numFrames] ));
+  pixelXShifts          = imresize(patchXShifts, inputSize(1:end-1), 'bicubic');
+  pixelYShifts          = imresize(patchYShifts, inputSize(1:end-1), 'bicubic');
+  [xGrid, yGrid]        = meshgrid(1:inputSize(2), 1:inputSize(1));
+  
+  %%
+  clear moviePatch;
+  frameDims             = 1:numel(inputSize)-1;
+  movieFrame            = num2cell(movie, frameDims);
+  pixelXShifts          = num2cell(bsxfun(@plus, pixelXShifts, xGrid), frameDims);
+  pixelYShifts          = num2cell(bsxfun(@plus, pixelYShifts, yGrid), frameDims);
+  
+  %%
+  tic
+  corrected             = cell(size(movieFrame));
+  parfor iFrame = 1:numFrames
+    %%
+    xLoc                = double( xGrid + pixelXShifts(:,:,iFrame) );
+    yLoc                = double( yGrid + pixelYShifts(:,:,iFrame) );
+    corrected{iFrame}   = griddata(xLoc, yLoc, double(movie(:,:,iFrame)), xGrid, yGrid);
+  end
+  corrected             = cat(3, corrected{:});
+  toc
+  
 end
