@@ -83,8 +83,8 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     % Read in the image and apply motion correction shifts
     if isempty(motionCorr)
       img         = cv.imreadx(imageFiles{iFile}, [], [], varargin{:});
-    elseif isfield(motionCorr(iFile), 'shifts')
-      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile).shifts, motionCorr(iFile).reference, motionCorr(iFile).params);
+    elseif isfield(motionCorr(iFile), 'rigid')
+      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile));
     else
       img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
     end

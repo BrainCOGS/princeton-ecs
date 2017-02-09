@@ -35,7 +35,6 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   parSettings.Pool.AutoCreate   = false;
 
   
-
   %% Check for existing correction files
   frameCorr                     = cell(size(inputFiles));
   corrPath                      = cell(size(inputFiles));
@@ -88,6 +87,14 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   end  
   
   
+  %% Cannot perform global registration for nonlinear correction because we need to calculate reference images, which means applying the nonlinear shifts, which is incredibly slow
+  if doNonlinear
+    fileCorr                    = [];
+    parSettings.Pool.AutoCreate = origAutoCreate;
+    return;
+  end
+  
+  
   %% Global registration
   % Stitch together separately corrected stacks, but only if nontrivial corrections were requested
   % for any one constituent file (handle special case where motion correction should be turned off)
@@ -95,12 +102,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   params                        = [frameCorr.params];
   if numel(inputFiles) > 1 && any([params.maxShift] ~= 0)
     refImage                    = cat(3, frameCorr.reference);
-    
-    if doNonlinear              % HACK here we use some hard-coded defaults
-      fileCorr                  = cv.motionCorrect(refImage, 30, 5, false, 0.3);
-    else
-      fileCorr                  = cv.motionCorrect(refImage, varargin{1:min(4,end)});
-    end
+    fileCorr                    = cv.motionCorrect(refImage, varargin{1:min(4,end)});
     
     if globalRegistration
       for iFile = 1:numel(inputFiles)
