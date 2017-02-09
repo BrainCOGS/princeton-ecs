@@ -45,7 +45,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     patchStart          = linspace(startRange(1), startRange(2), numPatches(iDim));
     patchStart          = min(max(round(patchStart), startRange(1)), startRange(2));
     patchSpan{iDim}     = bsxfun(@plus, (0:patchSize(iDim)-1)', patchStart);
-    patchCenter{iDim}   = patchSpan{iDim}(ceil(end/2),:);
+    patchCenter{iDim}   = ( patchSpan{iDim}(1,:) + patchSpan{iDim}(end,:) ) / 2;
   end
   [patchX, patchY]      = meshgrid(patchCenter{2}, patchCenter{1});
   
