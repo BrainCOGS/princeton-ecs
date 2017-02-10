@@ -8,14 +8,16 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     medianRebin         = 10;
   end
   if nargin < 6
-    patchSize           = [128 128];
+    patchSize           = [151 151];
+%     patchSize           = [128 128];
 %     patchSize           = [100 100];
   elseif numel(patchSize) < 2
     patchSize           = [patchSize patchSize];
   end
   if nargin < 7
 %     numPatches          = [10 10];
-    numPatches          = [8 8];
+%     numPatches          = [8 8];
+    numPatches          = [7 7];
   elseif numel(patchSize) < 2
     numPatches          = [numPatches numPatches];
   end
@@ -61,7 +63,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   %%
   patchCorr             = cell(size(moviePatch));
   parfor iPatch = 1:numel(patchCorr)
-    patchCorr{iPatch}   = cv.motionCorrect( moviePatch{iPatch}, maxShift(2), maxIter, false, stopBelowShift, nan, medianRebin, [0 0], false );
+    patchCorr{iPatch}   = cv.motionCorrect( moviePatch{iPatch}, maxShift(2), maxIter, false, stopBelowShift, nan, medianRebin, [0 0], false);
   end
 %   patchCorr             = reshape([patchCorr{:}], size(patchCorr));
   
@@ -101,7 +103,7 @@ end
 function badShift = checkRelativeShifts(location, dim)
   
   locDiff               = diff(location, 1, dim);
-  badShift              = locDiff < 0;
+  badShift              = locDiff <= 0;
   switch dim
     case 1
       badShift(end+1,:) = false;
