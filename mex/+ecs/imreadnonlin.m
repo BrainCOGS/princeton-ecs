@@ -4,8 +4,8 @@ function movie = imreadnonlin( inputPath, mcorr, gridUpsample )
   %% Default arguments
   if nargin < 3
 %     gridUpsample        = [4 4];
-%     gridUpsample        = [2 2];
-    gridUpsample        = [1 1];
+    gridUpsample        = [2 2];
+%     gridUpsample        = [1 1];
   elseif numel(gridUpsample) < 2
     gridUpsample        = [gridUpsample gridUpsample];
   end
@@ -16,10 +16,12 @@ function movie = imreadnonlin( inputPath, mcorr, gridUpsample )
   nFrames               = mcorr.inputSize(end);
   gridSize              = [numel(mcorr.yCenter), numel(mcorr.xCenter)] .* gridUpsample;
   
-%   xShifts               = mcorr.xShifts;
-%   yShifts               = mcorr.yShifts;
-  xShifts               = imgaussfilt(mcorr.xShifts, 0.5);
-  yShifts               = imgaussfilt(mcorr.yShifts, 0.5);
+  xShifts               = mcorr.xShifts;
+  yShifts               = mcorr.yShifts;
+%   xShifts               = imgaussfilt(mcorr.xShifts, 0.5);
+%   yShifts               = imgaussfilt(mcorr.yShifts, 0.5);
+%   xShifts(:)=0;
+%   yShifts(:)=0;
   patchXShifts          = upsamplePatchShifts(xShifts, gridSize);
   patchYShifts          = upsamplePatchShifts(yShifts, gridSize);
   
@@ -153,8 +155,8 @@ function movie = imreadnonlin( inputPath, mcorr, gridUpsample )
           rGrid         = round(rGrid);
           rowOrig       = yCenter(iY+iTri) + iDir*srcIndex(2,:);
           colOrig       = xCenter(iX+iTri) + iDir*srcIndex(1,:);
-          rowSide       = rowOrig + jDir;
-          colSide       = colOrig + jDir;
+          rowSide       = rowOrig + iDir*jDir;
+          colSide       = colOrig + iDir*jDir;
           
           valid         = rowSide > 0 & rowSide <= nRows & colSide > 0 & colSide <= nCols;
           rowOrig       = rowOrig(valid);

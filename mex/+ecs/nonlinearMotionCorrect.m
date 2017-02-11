@@ -1,6 +1,9 @@
 function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowShift, medianRebin, patchSize, numPatches)
      
   %% Default arguments
+  if numel(maxIter) < 2
+    maxIter(end+1)      = 2;
+  end
   if nargin < 4
     stopBelowShift      = 0;
   end
@@ -8,9 +11,9 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     medianRebin         = 10;
   end
   if nargin < 6
-    patchSize           = [151 151];
-%     patchSize           = [128 128];
-%     patchSize           = [100 100];
+%     patchSize           = [151 151];
+    patchSize           = [127 127];
+%     patchSize           = [101 101];
   elseif numel(patchSize) < 2
     patchSize           = [patchSize patchSize];
   end
@@ -32,7 +35,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
 
   %% Rigid motion correction
   mcorr                 = struct();
-  mcorr.rigid           = cv.motionCorrect(movie, maxShift(1), maxIter, false, stopBelowShift, nan, medianRebin);
+  mcorr.rigid           = cv.motionCorrect(movie, maxShift(1), maxIter(1), false, stopBelowShift, nan, medianRebin);
   movie                 = cv.imtranslatex(movie, mcorr.rigid.xShifts(:,end), mcorr.rigid.yShifts(:,end));
   mcorr.rigid.cropping  = getMovieCropping(mcorr.rigid);
   
@@ -62,10 +65,37 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   
   %%
   patchCorr             = cell(size(moviePatch));
-  parfor iPatch = 1:numel(patchCorr)
-    patchCorr{iPatch}   = cv.motionCorrect( moviePatch{iPatch}, maxShift(2), maxIter, false, stopBelowShift, nan, medianRebin, [0 0], false);
+  refPatch              = cell(numPatches);
+  reference             = mcorr.rigid.reference;
+  for iIter = 1:maxIter(2)
+
+    %%
+    for iRow = 1:numPatches(1)
+      for iCol = 1:numPatches(2)
+        refPatch{iRow,iCol}   = reference( patchSpan{1}(:,iRow), patchSpan{2}(:,iCol) );
+      end
+    end
+    
+    %%
+    parfor iPatch = 1:numel(patchCorr)
+      patchCorr{iPatch} = cv.motionCorrect( {moviePatch{iPatch},refPatch{iPatch}}, maxShift(2), 1, false, 0, nan, medianRebin, [0 0], false);
+      corrected         = cv.imtranslatex(moviePatch{iPatch}, patchCorr{iPatch}.xShifts(:,end), patchCorr{iPatch}.yShifts(:,end));
+      corrected         = rebin(corrected, medianRebin, 3);
+      refPatch{iPatch}  = median(corrected, 3, 'omitnan');
+    end
+
+    %%
+    reference           = nan([size(mcorr.rigid.reference),size(patchCorr)]);
+    for iRow = 1:numPatches(1)
+      for iCol = 1:numPatches(2)
+        reference(patchSpan{1}(:,iRow), patchSpan{2}(:,iCol),iRow,iCol)   ...
+                        = refPatch{iRow,iCol};
+      end
+    end
+    reference           = median(reference(:,:,:), 3, 'omitnan');
+    
   end
-%   patchCorr             = reshape([patchCorr{:}], size(patchCorr));
+  
   
   %%
   patchXShifts          = single(reshape( accumfun(1, @(x) x.xShifts(:,end)', patchCorr), [numPatches,numFrames] ));
