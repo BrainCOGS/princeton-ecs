@@ -2,10 +2,10 @@
 function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, varargin)
 
   % Default arguments
-  if nargin < 3
+  if nargin < 3 || isempty(frameGrouping)
     frameGrouping = 1;
   end
-  if nargin < 4
+  if nargin < 4 || isempty(cropping)
     cropping      = [];
   end
   if ischar(imageFiles)
@@ -19,10 +19,13 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   end
   
   % Option to crop border containing motion correction artifacts (some frames with no data)
-  if isempty(cropping)
-    frameSize     = size(motionCorr(1).reference);
-  else
+  if ~isempty(cropping)
     frameSize     = cropping.selectSize;
+  elseif isempty(motionCorr)
+    info          = ecs.imfinfox(imageFiles{1});
+    frameSize     = [info.height, info.width];
+  else
+    frameSize     = size(motionCorr(1).reference);
   end
 
   % Option to store only a subset of pixels (creates a 2D pixel-by-time matrix)
@@ -41,7 +44,11 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   
   % Compute movie size
   info            = ecs.imfinfox(imageFiles);
-  dataType        = class(motionCorr(1).reference);
+  if isempty(motionCorr)
+    dataType      = sprintf('%s%d', lower(info.sampleFormat), info.bitsPerSample);
+  else
+    dataType      = class(motionCorr(1).reference);
+  end
   totalFrames     = ceil(sum(info.fileFrames) / frameGrouping);
   inputSize       = [frameSize, totalFrames];
   if isempty(pixelIndex)
@@ -74,7 +81,13 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   sub             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
   for iFile = 1:numel(imageFiles)
     % Read in the image and apply motion correction shifts
-    img           = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
+    if isempty(motionCorr)
+      img         = cv.imreadx(imageFiles{iFile}, [], [], varargin{:});
+    elseif isfield(motionCorr(iFile), 'rigid')
+      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile));
+    else
+      img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
+    end
     
     % Crop border if so requested
     if ~isempty(cropping)
@@ -126,7 +139,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     end
   end
   if sub.nLeft > 0
-    binnedMovie(:,:,sub.nFrames+1)= sub.leftover / sub.nLeft;
+    binnedMovie(:,:,sub.nFrames+1)  = sub.leftover / sub.nLeft;
   end
   
 end

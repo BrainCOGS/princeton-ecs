@@ -2,13 +2,13 @@
   Computes a motion corrected version of the given movie using cv::matchTemplate().
 
   Usage syntax:
-    mc  = cv.motionCorrect( inputPath, maxShift, maxIter                            ...
-                          , [displayProgress = false], [stopBelowShift = 0]         ...
-                          , [blackTolerance = nan], [medianRebin = 1]               ...
-                          , [frameSkip = [0 0]]                                     ...
-                          , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]    ...
-                          , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]  ...
-                          , [emptyValue = mean]                                     ...
+    mc  = cv.motionCorrect( inputPath, maxShift, maxIter                                  ...
+                          , [displayProgress = false], [stopBelowShift = 0]               ...
+                          , [blackTolerance = nan], [medianRebin = 1]                     ...
+                          , [frameSkip = [0 0]], [centerShifts = ~isnan(blackTolerance)]  ...
+                          , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]          ...
+                          , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]        ...
+                          , [emptyValue = mean]                                           ...
                           );
     mc  = cv.motionCorrect( {input, template}, ... );
 
@@ -139,13 +139,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   double*                     usrBlackValue   = ( nrhs >  5 && mxGetNumberOfElements(prhs[5]) > 1 ? mxGetPr(prhs[5]) : 0 );
   int                         medianRebin     = ( nrhs >  6 ? int( mxGetScalar(prhs[6]) )  : 1      );
   const mxArray*              frameSkip       = ( nrhs >  7 ? prhs[7]                      : 0      );
-  const int                   methodInterp    = ( nrhs >  8 ? int( mxGetScalar(prhs[8]) )  : cv::InterpolationFlags::INTER_LINEAR     );
-  const int                   methodCorr      = ( nrhs >  9 ? int( mxGetScalar(prhs[9]) )  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
-  const double                usrEmptyValue   = ( nrhs > 10 ?      mxGetScalar(prhs[10])   : 0.     );
-  const bool                  emptyIsMean     = ( nrhs < 11 );
+  const bool                  centerShifts    = ( nrhs >  8 ? mxGetScalar(prhs[8]) > 0     : !(emptyProb > 0) );
+  const int                   methodInterp    = ( nrhs >  9 ? int( mxGetScalar(prhs[9]) )  : cv::InterpolationFlags::INTER_LINEAR     );
+  const int                   methodCorr      = ( nrhs > 10 ? int( mxGetScalar(prhs[10]))  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
+  const double                usrEmptyValue   = ( nrhs > 11 ?      mxGetScalar(prhs[11])   : 0.     );
+  const bool                  emptyIsMean     = ( nrhs <=12 );
   const bool                  subPixelReg     = ( methodInterp >= 0 );
 
-
+  
   //---------------------------------------------------------------------------
 
   std::vector<cv::Mat>        imgStack, refStack;
@@ -503,7 +504,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
     // Adjust shifts so that they span the range symmetrically
-    if (emptyProb <= 0) {
+    if (centerShifts) {
       midXShift               = (minXShift + maxXShift) / 2;
       midYShift               = (minYShift + maxYShift) / 2;
       for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
@@ -595,6 +596,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   mxSetField(plhs[0], 0, "params"   , outParams);
   mxSetField(plhs[0], 0, "metric"   , outMetric);
   mxSetField(plhs[0], 0, "reference", outRef);
+
 
   // Output corrected movie if so desired
   if (nlhs > 1) {
