@@ -123,7 +123,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   mcorr.params          = patchCorr{1}.params;
   mcorr.params.emptyValue = cellfun(@(x) x.params.emptyValue, patchCorr);
   mcorr.metric          = [];           % HACK: not stored
-  mcorr.reference       = [];           % HACK: placeholder
+  mcorr.reference       = reference;
   mcorr.xCenter         = patchCenter{2};
   mcorr.yCenter         = patchCenter{1};
 
