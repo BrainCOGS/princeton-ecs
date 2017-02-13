@@ -25,10 +25,17 @@ function movie = imreadnonlin( inputPath, mcorr, gridUpsample )
   patchXShifts          = upsamplePatchShifts(xShifts, gridSize);
   patchYShifts          = upsamplePatchShifts(yShifts, gridSize);
   
+%   xCenter               = [1, round(linspace(mcorr.xCenter(1), mcorr.xCenter(end), gridSize(2))), nCols+1];
+%   yCenter               = [1, round(linspace(mcorr.yCenter(1), mcorr.yCenter(end), gridSize(1))), nRows+1]';
   xCenter               = [1, round(linspace(mcorr.xCenter(1), mcorr.xCenter(end), gridSize(2))), nCols];
   yCenter               = [1, round(linspace(mcorr.yCenter(1), mcorr.yCenter(end), gridSize(1))), nRows]';
   patchNx               = diff(xCenter);
   patchNy               = diff(yCenter);
+  
+  
+  %%
+  patchXLoc             = bsxfun(@plus, patchXShifts, xCenter);
+  patchYLoc             = bsxfun(@plus, patchYShifts, yCenter);
   
   
   %% Read input movie
@@ -38,19 +45,30 @@ function movie = imreadnonlin( inputPath, mcorr, gridUpsample )
     movie               = inputPath;
     movie               = cv.imtranslatex(movie, mcorr.rigid.xShifts(:,end), mcorr.rigid.yShifts(:,end));
   end
+
+  %%
+  tic
+  corrected             = ecs.barycentricMeshWarp(movie, xCenter, yCenter, patchXLoc, patchYLoc);
+  toc;
   
+  %%
+  tic
+  iFrame = 1;
+  corrected             = ecs.barycentricMeshWarp(movie(:,:,iFrame), xCenter, yCenter, patchXLoc, patchYLoc);
+  toc;
   
   %%
 %   profile on
   tic
   corrected             = nan([nRows,nCols], 'like', movie);
-  nPixels               = nRows * nCols;
   truncator             = {@floor, @ceil};
   for iFrame = 1:nFrames
     %%
     xLoc                = double(bsxfun(@plus, patchXShifts(:,:,iFrame), xCenter));
     yLoc                = double(bsxfun(@plus, patchYShifts(:,:,iFrame), yCenter));
     original            = movie(:,:,iFrame);
+    corrected(:)        = nan;
+    
 %     figure; hold on; plot(xLoc(:),yLoc(:),'ko'); axis image ij;
 %     figure; imagesc(patchXShifts(:,:,iFrame)); axis image ij; colorbar
 %     figure; imagesc(patchYShifts(:,:,iFrame)); axis image ij; colorbar
@@ -158,20 +176,43 @@ function movie = imreadnonlin( inputPath, mcorr, gridUpsample )
           rowSide       = rowOrig + iDir*jDir;
           colSide       = colOrig + iDir*jDir;
           
-          valid         = rowSide    > 0 & rowSide    <= nRows & colSide    > 0 & colSide    <= nCols   ... 
+          %%
+          valid         = rowOrig    > 0 & rowOrig    <= nRows & colOrig    > 0 & colOrig    <= nCols   ... 
                         & rGrid(2,:) > 0 & rGrid(2,:) <= nRows & rGrid(1,:) > 0 & rGrid(1,:) <= nCols   ...
                         ;
           rowOrig       = rowOrig(valid);
           rowSide       = rowSide(valid);
           colOrig       = colOrig(valid);
           colSide       = colSide(valid);
+          bcCoords      = bcCoords(:,valid);
+          rGrid         = rGrid(:,valid);
           
+          %%
+          srcValue          = nan(3,numel(rowOrig));
+          srcValue(end,:)   = original(rowOrig + nRows*(colOrig - 1));
+          sel               = colSide > 0 & colSide <= nCols;
+          srcValue(1,sel)   = original(rowOrig(sel) + nRows*(colSide(sel) - 1));
+          sel               = rowSide > 0 & rowSide <= nRows;
+          srcValue(2,sel)   = original(rowSide(sel) + nRows*(colOrig(sel) - 1));
+
+          %%
+          sel               = isnan(srcValue);
+          srcValue(sel)     = 0;
+          bcCoords(sel)     = 0;
+          bcCoords          = bsxfun(@rdivide, bcCoords, sum(bcCoords,1));
+          
+          %%
+          corrected( rGrid(2,:) + nRows*(rGrid(1,:) - 1) )        ...
+                        = sum(bcCoords .* srcValue, 1);
+                      
+          %{
           srcValue      = [ original(rowOrig + nRows*(colSide - 1))       ...
                           ; original(rowSide + nRows*(colOrig - 1))       ...
                           ; original(rowOrig + nRows*(colOrig - 1))       ...
                           ];
           corrected( rGrid(2,valid) + nRows*(rGrid(1,valid) - 1) )        ...
                         = sum(bcCoords(:,valid) .* srcValue, 1);
+          %}
 
           %%
           iTri          = iTri + 1;
@@ -180,10 +221,11 @@ function movie = imreadnonlin( inputPath, mcorr, gridUpsample )
     end
     
     %%
+    break;
     movie(:,:,iFrame)   = corrected;
   end
-  toc
 %   profile viewer
+toc
   
 end
 

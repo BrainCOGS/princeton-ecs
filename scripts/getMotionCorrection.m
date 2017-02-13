@@ -94,7 +94,11 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   params                        = [frameCorr.params];
   if numel(inputFiles) > 1 && any([params.maxShift] ~= 0)
     refImage                    = cat(3, frameCorr.reference);
-    fileCorr                    = cv.motionCorrect(refImage, varargin{1:min(4,end)});
+    if doNonlinear              % HACK: Hard-coded
+      fileCorr                  = cv.motionCorrect(refImage, 30, 5, false, 0.3);
+    else
+      fileCorr                  = cv.motionCorrect(refImage, varargin{1:min(4,end)});
+    end
     
     if globalRegistration
       for iFile = 1:numel(inputFiles)

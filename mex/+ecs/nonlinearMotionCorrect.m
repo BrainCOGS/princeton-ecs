@@ -1,7 +1,14 @@
 function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowShift, medianRebin, patchSize, numPatches)
      
   %% Default arguments
-  if numel(maxIter) < 2
+  if nargin < 2
+    maxShift            = [15 8];
+  elseif numel(maxShift) < 2
+    maxShift            = [maxShift, maxShift];
+  end
+  if nargin < 3
+    maxIter             = [5 2];
+  elseif numel(maxIter) < 2
     maxIter(end+1)      = 2;
   end
   if nargin < 4
@@ -85,7 +92,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     end
 
     %%
-    reference           = nan([size(mcorr.rigid.reference),size(patchCorr)]);
+    reference           = nan([size(mcorr.rigid.reference),size(patchCorr)], 'like', reference);
     for iRow = 1:numPatches(1)
       for iCol = 1:numPatches(2)
         reference(patchSpan{1}(:,iRow), patchSpan{2}(:,iCol),iRow,iCol)   ...
@@ -93,6 +100,8 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
       end
     end
     reference           = median(reference(:,:,:), 3, 'omitnan');
+    reference(isnan(reference))           ... OpenCV algorithms typically cannot handle NaNs
+                        = mcorr.rigid.params.emptyValue;
     
   end
   
