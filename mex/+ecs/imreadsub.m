@@ -1,7 +1,15 @@
 %% IMREADSUB      Loads multiple image stacks into memory, applying motion correction and downsampling
 function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, varargin)
 
-  % Default arguments
+  %% Default arguments
+  if nargin < 2
+    motionCorr    = [];
+  elseif iscell(motionCorr)
+    doParallel    = motionCorr{2};
+    motionCorr    = motionCorr{1};
+  else
+    doParallel    = ~isempty(gcp('nocreate'));
+  end
   if nargin < 3 || isempty(frameGrouping)
     frameGrouping = 1;
   end
@@ -18,7 +26,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     verbose       = false;
   end
   
-  % Option to crop border containing motion correction artifacts (some frames with no data)
+  %% Option to crop border containing motion correction artifacts (some frames with no data)
   if ~isempty(cropping)
     frameSize     = cropping.selectSize;
   elseif isempty(motionCorr)
@@ -28,7 +36,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     frameSize     = size(motionCorr(1).reference);
   end
 
-  % Option to store only a subset of pixels (creates a 2D pixel-by-time matrix)
+  %% Option to store only a subset of pixels (creates a 2D pixel-by-time matrix)
   addGrouping     = [];
   if iscell(frameGrouping)
     pixelIndex    = frameGrouping{2};
@@ -42,7 +50,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   end
   
   
-  % Compute movie size
+  %% Compute movie size
   info            = ecs.imfinfox(imageFiles);
   if isempty(motionCorr)
     dataType      = sprintf('%s%d', lower(info.sampleFormat), info.bitsPerSample);
@@ -66,7 +74,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   end
   
   
-  % Preallocate output
+  %% Preallocate output
   if numel(imageFiles) > 1 || ~isempty(pixelIndex)
     movie         = zeros(movieSize, dataType);
   end
@@ -75,26 +83,34 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   else
     binnedMovie   = zeros([frameSize, ceil(sum(info.fileFrames) / frameGrouping / addGrouping)], dataType);
   end
+
+  info.nHasData   = zeros(frameSize);
+
   
-  
+  %% Loop sequentially over input files and collect chunks of frames
   out             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
   sub             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
   for iFile = 1:numel(imageFiles)
-    % Read in the image and apply motion correction shifts
+    %% Read in the image and apply motion correction shifts
     if isempty(motionCorr)
       img         = cv.imreadx(imageFiles{iFile}, [], [], varargin{:});
     elseif isfield(motionCorr(iFile), 'rigid')
-      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile));
+      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile), doParallel);
     else
       img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
     end
     
-    % Crop border if so requested
+    
+    %% Crop border if so requested
     if ~isempty(cropping)
       img         = rectangularSubset(img, cropping.selectMask, cropping.selectSize, 1);
     end
     
-    % Rebin if so desired
+    % Aggregate the number of frames with valid data per pixel
+    info.nHasData = info.nHasData + sum(isfinite(img), 3);
+    
+    
+    %% Rebin if so desired
     if ~isempty(frameGrouping) && frameGrouping > 1
       [img, range, out]       ...
                   = onTheFlyRebin(img, frameGrouping, out);
@@ -110,7 +126,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
       binnedMovie(:,:,bRange)     = binned;
     end
 
-    
+    %% Store in the target chunk, optionally as a list of pixels
     if ~isempty(pixelIndex)
       % Store only subset of pixels
       img         = reshape(img, [], size(img,3));
@@ -128,7 +144,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   end
   
   
-  % Don't forget last frame in rebinned movies
+  %% Don't forget last frame in rebinned movies
   if out.nLeft > 0
     if isempty(pixelIndex)
       movie(:,:,out.nFrames+1)      = out.leftover / out.nLeft;
@@ -145,7 +161,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
 end
 
 
-%%
+%---------------------------------------------------------------------------------------------------
 function [binned, binRange, info] = onTheFlyRebin(img, binsPerGroup, info)
   
   % Preallocate output

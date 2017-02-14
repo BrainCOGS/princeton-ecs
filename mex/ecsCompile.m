@@ -199,6 +199,8 @@ cvOpts        = [ cvOpts                                  ...
 %   Compilation procedure
 %===================================================================================================
 
+clear mex;
+
 % Get separate lists of OpenCV dependent and non-dependent code files
 [cvSrc, tiffSrc, ecsSrc]  = getMEXCode(ECS_LIB, '*.cpp');
 

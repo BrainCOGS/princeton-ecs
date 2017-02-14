@@ -1,8 +1,8 @@
-function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowShift, medianRebin, patchSize, numPatches)
+function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowShift, medianRebin, patchSize, numPatches, maxShiftDifference, smoothness)
      
   %% Default arguments
   if nargin < 2
-    maxShift            = [15 8];
+    maxShift            = [15 15];
   elseif numel(maxShift) < 2
     maxShift            = [maxShift, maxShift];
   end
@@ -18,18 +18,28 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     medianRebin         = 10;
   end
   if nargin < 6
-%     patchSize           = [151 151];
-    patchSize           = [127 127];
+%     patchSize           = [129 171];
+%     patchSize           = [255 255];
+    patchSize           = [151 151];
+%     patchSize           = [127 127];
 %     patchSize           = [101 101];
   elseif numel(patchSize) < 2
     patchSize           = [patchSize patchSize];
   end
   if nargin < 7
-%     numPatches          = [10 10];
+%     numPatches          = [3 3];
+    numPatches          = [6 6];
+%     numPatches          = [7 7];
 %     numPatches          = [8 8];
-    numPatches          = [7 7];
+%     numPatches          = [10 10];
   elseif numel(patchSize) < 2
     numPatches          = [numPatches numPatches];
+  end
+  if nargin < 8
+    maxShiftDifference  = 1;
+  end
+  if nargin < 9
+    smoothness          = 0.5;
   end
   
   
@@ -90,7 +100,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
       corrected         = rebin(corrected, medianRebin, 3);
       refPatch{iPatch}  = median(corrected, 3, 'omitnan');
     end
-
+    
     %%
     reference           = nan([size(mcorr.rigid.reference),size(patchCorr)], 'like', reference);
     for iRow = 1:numPatches(1)
@@ -109,6 +119,71 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   %%
   patchXShifts          = single(reshape( accumfun(1, @(x) x.xShifts(:,end)', patchCorr), [numPatches,numFrames] ));
   patchYShifts          = single(reshape( accumfun(1, @(x) x.yShifts(:,end)', patchCorr), [numPatches,numFrames] ));
+  minXDiff              = minNeighborDifference(patchXShifts);
+  minYDiff              = minNeighborDifference(patchYShifts);
+  tooDifferent          = minXDiff > maxShiftDifference | minYDiff > maxShiftDifference;
+  index                 = find(tooDifferent(:));
+  
+  %%
+  for iDiff = 1:numel(index)
+    %%
+    [iRow,iCol,iFrame]  = ind2sub(size(tooDifferent), index(iDiff));
+    metric              = patchCorr{iRow,iCol}.metric.values(:,:,iFrame);
+    if iRow > 1                                             % N
+      metric(:,:,end+1) = patchCorr{iRow-1,iCol}.metric.values(:,:,iFrame);
+    end
+    if iRow < size(patchCorr,1)                             % S
+      metric(:,:,end+1) = patchCorr{iRow+1,iCol}.metric.values(:,:,iFrame);
+    end
+    if iCol < size(patchCorr,2)                             % E
+      metric(:,:,end+1) = patchCorr{iRow,iCol+1}.metric.values(:,:,iFrame);
+    end
+    if iCol > 1                                             % W
+      metric(:,:,end+1) = patchCorr{iRow,iCol-1}.metric.values(:,:,iFrame);
+    end
+    
+    %%
+    comboMetric         = (1 - smoothness)*metric(:,:,1) + smoothness*mean(metric(:,:,2:end), 3);
+    [~,iMax]            = max(comboMetric(:));
+    [yMax, xMax]        = ind2sub(size(comboMetric), iMax);
+    
+    %% 1D Gaussian interpolation in each direction
+    if xMax > 1
+      ln10              = log(comboMetric(yMax, xMax - 1));
+    else
+      ln10              = nan;
+    end
+    ln11                = log(comboMetric(yMax, xMax));
+    if xMax < size(comboMetric,2)
+      ln12              = log(comboMetric(yMax, xMax + 1));
+    else
+      ln12              = nan;
+    end
+    if yMax > 1
+      ln01              = log(comboMetric(yMax - 1, xMax));
+    else
+      ln01              = nan;
+    end
+    if yMax < size(comboMetric,1)
+      ln21              = log(comboMetric(yMax + 1, xMax));
+    else
+      ln21              = nan;
+    end
+    xPeak               = ( ln10 - ln12 ) / ( 2 * ln10 - 4 * ln11 + 2 * ln12 );
+    yPeak               = ( ln01 - ln21 ) / ( 2 * ln01 - 4 * ln11 + 2 * ln21 );
+    if isnan(xPeak)
+      xPeak             = 0;
+    end
+    if isnan(yPeak)
+      yPeak             = 0;
+    end
+    
+    %%
+%     patchCorr{iRow,iCol}.metric.values(:,:,iFrame)  = comboMetric;
+    patchXShifts(iRow,iCol,iFrame)  = -( xMax - ceil(size(comboMetric,2)/2) + xPeak );
+    patchYShifts(iRow,iCol,iFrame)  = -( yMax - ceil(size(comboMetric,1)/2) + yPeak );
+  end
+
   
   %% Ensure that the order of patches are preserved
   badShift              = false(size(patchCorr));
@@ -131,6 +206,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   mcorr.method          = 'ecs.nonlinearMotionCorrect';
   mcorr.params          = patchCorr{1}.params;
   mcorr.params.emptyValue = cellfun(@(x) x.params.emptyValue, patchCorr);
+  mcorr.params.patchSize= patchSize;
   mcorr.metric          = [];           % HACK: not stored
   mcorr.reference       = reference;
   mcorr.xCenter         = patchCenter{2};

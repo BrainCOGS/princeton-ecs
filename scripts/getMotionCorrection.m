@@ -94,18 +94,30 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   params                        = [frameCorr.params];
   if numel(inputFiles) > 1 && any([params.maxShift] ~= 0)
     refImage                    = cat(3, frameCorr.reference);
+    
     if doNonlinear              % HACK: Hard-coded
       fileCorr                  = cv.motionCorrect(refImage, 30, 5, false, 0.3);
     else
       fileCorr                  = cv.motionCorrect(refImage, varargin{1:min(4,end)});
     end
     
+    %% Apply global shifts to the rigid translation list; this is different for nonlinearly corrected
     if globalRegistration
-      for iFile = 1:numel(inputFiles)
-        frameCorr(iFile).xShifts(:,end+1) = frameCorr(iFile).xShifts(:,end) + fileCorr.xShifts(iFile, end);
-        frameCorr(iFile).yShifts(:,end+1) = frameCorr(iFile).yShifts(:,end) + fileCorr.yShifts(iFile, end);
+      if isfield(frameCorr, 'rigid')
+        for iFile = 1:numel(inputFiles)
+          frameCorr(iFile).rigid.xShifts(:,end+1) = frameCorr(iFile).rigid.xShifts(:,end) + fileCorr.xShifts(iFile, end);
+          frameCorr(iFile).rigid.yShifts(:,end+1) = frameCorr(iFile).rigid.yShifts(:,end) + fileCorr.yShifts(iFile, end);
+          frameCorr(iFile).xCenter                = frameCorr(iFile).xCenter + fileCorr.xShifts(iFile, end);
+          frameCorr(iFile).yCenter                = frameCorr(iFile).yCenter + fileCorr.yShifts(iFile, end);
+        end
+      else
+        for iFile = 1:numel(inputFiles)
+          frameCorr(iFile).xShifts(:,end+1)       = frameCorr(iFile).xShifts(:,end) + fileCorr.xShifts(iFile, end);
+          frameCorr(iFile).yShifts(:,end+1)       = frameCorr(iFile).yShifts(:,end) + fileCorr.yShifts(iFile, end);
+        end
       end
     end
+    
   else
     fileCorr                    = frameCorr(1);
     fileCorr.xShifts            = zeros(numel(inputFiles), 1);

@@ -145,7 +145,7 @@ public:
       // Perform a simple pixel shift
       else {
         frmTemp.create(image.size(), CV_32F);
-        cvCall<CopyShiftedImage32>(frmTemp, frmClone, *xShift, *yShift, emptyPix);
+        cvCall<CopyShiftedImage32>(frmTemp, frmClone, *yShift, *xShift, emptyPix);
       }
 
       // Move on to next shift

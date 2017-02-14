@@ -59,7 +59,9 @@ void vectorAddTo(Number* out, const Number* A, const int nCols, const Number off
 
 //=============================================================================
 template<typename Pixel>
-void barycentricMeshWarp(const mxArray* source, mxArray* target, const mxArray* xSample, const mxArray* ySample, const mxArray* xTarget, const mxArray* yTarget)
+void barycentricMeshWarp( const mxArray* source, mxArray* target, const mxArray* xSample, const mxArray* ySample
+                        , const mxArray* xTarget, const mxArray* yTarget, const bool perFrameX, const bool perFrameY
+                        )
 {
   // Get pointers to data
   const Pixel*          src             = (const Pixel*)  mxGetData(source);
@@ -140,18 +142,30 @@ void barycentricMeshWarp(const mxArray* source, mxArray* target, const mxArray* 
                                           };
 
           // Relative origin of target query grid (pixels in output image)
+          // Here we use the closest grid point to the origin of the source triangle
           const int     oGrid[]         = { static_cast<int>(fTrunc(oWarped[0]))
                                           , static_cast<int>(fTrunc(oWarped[1]))
                                           };
           const double  oGridRel[]      = { oGrid[0] - oWarped[0], oGrid[1] - oWarped[1] };
           
-          // Generate query grid points in barycentric coordinates
+          // Origin of the query grid in barycentric coordinates
           double        bcGridOrig[2];
-          double        nMax[2];        // maximum number of integer points along the triangle sides
-          matrixMultiply(bcGridOrig, invShape, oGridRel  , 1);
-          matrixMultiply(nMax      , shape   , bcGridOrig, 1, 1., -1.);
-          nMax[0]       = iDir * ( fTrunc(nMax[0]) );
-          nMax[1]       = iDir * ( fTrunc(nMax[1]) );
+          matrixMultiply(bcGridOrig, invShape, oGridRel, 1);
+
+          // Determine the bounding box of the source triangle relative to the origin (oGrid)
+          double        nMin[2], nMax[2];
+          nMin[0]       = 0;            nMin[1]       = 0;
+          nMax[0]       = 0;            nMax[1]       = 0;
+          for (int iSide = 0; iSide < 3; iSide += 2) {        // two sides of the triangle, i.e. columns of shape
+            for (int iCoord = 0; iCoord < 2; ++iCoord) {      // x,y
+              // Pixel location at or just outside of this vertex
+              double    vertexBound     = static_cast<int>(fTrunc( oWarped[iCoord] + shape[iSide + iCoord] )) 
+                                        - oGrid[iCoord]
+                                        ;
+              nMin[iCoord]              = std::min(nMin[iCoord], vertexBound);
+              nMax[iCoord]              = std::max(nMax[iCoord], vertexBound);
+            }
+          }
           
           
           /*
@@ -162,8 +176,8 @@ void barycentricMeshWarp(const mxArray* source, mxArray* target, const mxArray* 
           */
           srcGrid.clear();
           tgtGrid.clear();
-          for (int iGrid = -iDir; iDir*iGrid <= nMax[0]; iGrid += iDir) {
-            for (int jGrid = -iDir; iDir*jGrid <= nMax[1]; jGrid += iDir) {
+          for (int iGrid = nMin[0]; iGrid <= nMax[0]; ++iGrid) {
+            for (int jGrid = nMin[1]; jGrid <= nMax[1]; ++jGrid) {
 
               double    bcTest[2];
               double    rGrid[]         = {iGrid, jGrid};
@@ -318,6 +332,10 @@ void barycentricMeshWarp(const mxArray* source, mxArray* target, const mxArray* 
     tgt                += nPixels;
     xLoc               += nPatches;
     yLoc               += nPatches;
+    if (perFrameX)
+      xCenter          += nPatchX;
+    if (perFrameY)
+      yCenter          += nPatchY;
   } // end loop over frames
 
 }
@@ -325,7 +343,7 @@ void barycentricMeshWarp(const mxArray* source, mxArray* target, const mxArray* 
 
 
 //=============================================================================
-void checkTypeAndSizes(const mxArray* source, const mxArray* centers, const mxArray* shifts, const mwSize dim, const char* label)
+bool checkTypeAndSizes(const mxArray* source, const mxArray* centers, const mxArray* shifts, const mwSize dim, const char* label)
 {
   if (mxGetClassID(source) != mxGetClassID(shifts))
     mexErrMsgIdAndTxt( "barycentricMeshWarp:input", "Data type of source image and %sTarget must be the same.", label );
@@ -334,13 +352,21 @@ void checkTypeAndSizes(const mxArray* source, const mxArray* centers, const mxAr
 
   const mwSize*         nSrcDims        = mxGetDimensions(source);
   const mwSize*         nTgtDims        = mxGetDimensions(shifts);
-  const mwSize          nSrcFrames      = mxGetNumberOfDimensions(source) > 2 ? nSrcDims[2]   : 1;
+  const mwSize          nSrcFrames      = mxGetNumberOfDimensions(source) > 2 ? nSrcDims[2] : 1;
   const mwSize          nTgtFrames      = mxGetNumberOfDimensions(shifts) > 2 ? nTgtDims[2] : 1;
 
-  if (nSrcFrames > nTgtFrames)
+  if (nTgtFrames < nSrcFrames)
     mexErrMsgIdAndTxt( "barycentricMeshWarp:input", "%sTarget must have at least as many frames (3rd dimension) as source movie.", label );
-  if (mxGetNumberOfElements(centers) != nTgtDims[dim])
-    mexErrMsgIdAndTxt( "barycentricMeshWarp:input", "%sSample must have the same number of elements as dimension %d of %sTarget.", label, dim+1, label );
+
+  if (mxGetM(centers) == 1 || mxGetN(centers) == 1) {         // 1-dimensional list specified
+    if (mxGetNumberOfElements(centers) != nTgtDims[dim])
+      mexErrMsgIdAndTxt( "barycentricMeshWarp:input", "%sSample must have the same number of elements as dimension %d of %sTarget.", label, dim+1, label );
+    return false;
+  }
+
+  if (mxGetM(centers) != nTgtDims[dim] || mxGetN(centers) != nSrcFrames)
+    mexErrMsgIdAndTxt( "barycentricMeshWarp:input", "%sSample must have %d rows (dimension %d of %sTarget) and %d columns (source movie frames).", label, dim+1, label, nSrcFrames );
+  return true;
 }
 
 
@@ -359,8 +385,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const mxArray*        xTarget         = prhs[3];
   const mxArray*        yTarget         = prhs[4];
 
-  checkTypeAndSizes(source, xSample, xTarget, 1, "x");
-  checkTypeAndSizes(source, ySample, yTarget, 0, "y");
+  const bool            perFrameX       = checkTypeAndSizes(source, xSample, xTarget, 1, "x");
+  const bool            perFrameY       = checkTypeAndSizes(source, ySample, yTarget, 0, "y");
   if (mxGetNumberOfElements(xTarget) != mxGetNumberOfElements(yTarget))
     mexErrMsgIdAndTxt( "barycentricMeshWarp:input", "xTarget and yTarget must have the same number of elements." );
 
@@ -373,17 +399,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
   switch (mxGetClassID(source)) {
-  case mxSINGLE_CLASS :   barycentricMeshWarp<float         >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxCHAR_CLASS   :   barycentricMeshWarp<char          >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxDOUBLE_CLASS :   barycentricMeshWarp<double        >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxINT8_CLASS   :   barycentricMeshWarp<char          >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxUINT8_CLASS  :   barycentricMeshWarp<unsigned char >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxINT16_CLASS  :   barycentricMeshWarp<short         >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxUINT16_CLASS :   barycentricMeshWarp<unsigned short>(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxINT32_CLASS  :   barycentricMeshWarp<int           >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxUINT32_CLASS :   barycentricMeshWarp<unsigned int  >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxINT64_CLASS  :   barycentricMeshWarp<int64_t       >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
-  case mxUINT64_CLASS :   barycentricMeshWarp<uint64_t      >(source, plhs[0], xSample, ySample, xTarget, yTarget);   break;
+  case mxSINGLE_CLASS :   barycentricMeshWarp<float         >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxCHAR_CLASS   :   barycentricMeshWarp<char          >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxDOUBLE_CLASS :   barycentricMeshWarp<double        >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxINT8_CLASS   :   barycentricMeshWarp<char          >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxUINT8_CLASS  :   barycentricMeshWarp<unsigned char >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxINT16_CLASS  :   barycentricMeshWarp<short         >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxUINT16_CLASS :   barycentricMeshWarp<unsigned short>(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxINT32_CLASS  :   barycentricMeshWarp<int           >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxUINT32_CLASS :   barycentricMeshWarp<unsigned int  >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxINT64_CLASS  :   barycentricMeshWarp<int64_t       >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
+  case mxUINT64_CLASS :   barycentricMeshWarp<uint64_t      >(source, plhs[0], xSample, ySample, xTarget, yTarget, perFrameX, perFrameY);   break;
 
   default:
     mexErrMsgIdAndTxt("barycentricMeshWarp:arguments", "Unsupported type of source image.");

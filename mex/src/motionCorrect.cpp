@@ -6,6 +6,7 @@
                           , [displayProgress = false], [stopBelowShift = 0]               ...
                           , [blackTolerance = nan], [medianRebin = 1]                     ...
                           , [frameSkip = [0 0]], [centerShifts = ~isnan(blackTolerance)]  ...
+                          , [preferSmallestShifts = false]                                ...
                           , [methodInterp = cve.InterpolationFlags.INTER_LINEAR]          ...
                           , [methodCorr = cve.TemplateMatchModes.TM_CCOEFF_NORMED]        ...
                           , [emptyValue = mean]                                           ...
@@ -114,6 +115,45 @@ void typecastCVData(std::vector<cv::Mat>& imgStack, std::vector<cv::Mat>& origSt
 
 
 
+typedef   bool (*Comparator)(float, float);
+bool lessThan   (float a, float b) { return a < b; }
+bool greaterThan(float a, float b) { return a > b; }
+
+void findLocalOptimum(const cv::Mat& metric, const std::vector<double>& radius2, cv::Point& optimum, Comparator reject)
+{
+  const int             lastRow         = metric.rows - 1;
+  const int             lastCol         = metric.cols - 1;
+  double                bestRadius2     = radius2[ optimum.x + metric.cols*optimum.y ];
+
+  for (int iY = 1, index = metric.cols; iY < lastRow; ++iY) {
+    // The following are the three rows centered at the test row
+    const float*        row0            = metric.ptr<float>(iY - 1);
+    const float*        row1            = metric.ptr<float>(iY    );
+    const float*        row2            = metric.ptr<float>(iY + 1);
+
+    ++index;            // skipping first column
+    for (int iX = 1; iX < lastCol; ++iX, ++index) {
+      if  ( reject( row1[iX], row0[iX  ] )        // N
+         || reject( row1[iX], row2[iX  ] )        // S
+         || reject( row1[iX], row1[iX+1] )        // E
+         || reject( row1[iX], row1[iX-1] )        // W
+         || reject( row1[iX], row0[iX+1] )        // NE
+         || reject( row1[iX], row0[iX-1] )        // NW
+         || reject( row1[iX], row2[iX+1] )        // SE
+         || reject( row1[iX], row2[iX-1] )        // SW
+         || bestRadius2 < radius2[index]
+          )
+        continue;
+
+      bestRadius2       = radius2[index];
+      optimum.x         = iX;
+      optimum.y         = iY;
+    }
+    ++index;            // skipping last column
+  }
+}
+
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Main entry point to a MEX function
@@ -123,7 +163,7 @@ void typecastCVData(std::vector<cv::Mat>& imgStack, std::vector<cv::Mat>& origSt
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 3 || nrhs > 10 || nlhs < 1 || nlhs > 2) {
+  if (nrhs < 3 || nrhs > 13 || nlhs < 1 || nlhs > 2) {
     mexEvalString("help cv.motionCorrect");
     mexErrMsgIdAndTxt( "motionCorrect:usage", "Incorrect number of inputs/outputs provided." );
   }
@@ -140,10 +180,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   int                         medianRebin     = ( nrhs >  6 ? int( mxGetScalar(prhs[6]) )  : 1      );
   const mxArray*              frameSkip       = ( nrhs >  7 ? prhs[7]                      : 0      );
   const bool                  centerShifts    = ( nrhs >  8 ? mxGetScalar(prhs[8]) > 0     : !(emptyProb > 0) );
-  const int                   methodInterp    = ( nrhs >  9 ? int( mxGetScalar(prhs[9]) )  : cv::InterpolationFlags::INTER_LINEAR     );
-  const int                   methodCorr      = ( nrhs > 10 ? int( mxGetScalar(prhs[10]))  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
-  const double                usrEmptyValue   = ( nrhs > 11 ?      mxGetScalar(prhs[11])   : 0.     );
-  const bool                  emptyIsMean     = ( nrhs <=12 );
+  const bool                  preferSmallest  = ( nrhs >  9 ? mxGetScalar(prhs[9]) > 0     : false  );
+  const int                   methodInterp    = ( nrhs > 10 ? int( mxGetScalar(prhs[10]))  : cv::InterpolationFlags::INTER_LINEAR     );
+  const int                   methodCorr      = ( nrhs > 11 ? int( mxGetScalar(prhs[11]))  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
+  const double                usrEmptyValue   = ( nrhs > 12 ?      mxGetScalar(prhs[12])   : 0.     );
+  const bool                  emptyIsMean     = ( nrhs <=13 );
   const bool                  subPixelReg     = ( methodInterp >= 0 );
 
   
@@ -185,7 +226,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       mexErrMsgIdAndTxt( "motionCorrect:arguments", "frameSkip must be a 2-element array [offset, skip]." );
     const double*             skip            = mxGetPr(frameSkip);
     int                       iOutput         = 0;
-    for (int iInput = skip[0]; iInput < imgStack.size(); iInput += 1 + skip[1], ++iOutput)
+    for (int iInput = static_cast<int>(skip[0]); iInput < imgStack.size(); iInput += 1 + static_cast<int>(skip[1]), ++iOutput)
       imgStack[iOutput]       = imgStack[iInput];
     imgStack.resize(iOutput);
   }
@@ -207,7 +248,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   const int                   firstRefRow     = std::min(maxShift, (imgStack[0].rows - 1)/2);
   const int                   firstRefCol     = std::min(maxShift, (imgStack[0].cols - 1)/2);
   const size_t                metricSize[]    = {size_t(2*firstRefRow + 1), size_t(2*firstRefCol + 1), numFrames};
-  const int                   metricOffset    = metricSize[0] * metricSize[1];
+  const int                   metricOffset    = static_cast<int>( metricSize[0] * metricSize[1] );
 
   // If so desired, omit black (empty) frames
   std::vector<bool>           isEmpty;
@@ -282,6 +323,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   std::vector<float>          traceTemp (std::max(numMedian, refStack.size()));
   std::vector<cv::Mat>        imgShifted(numMedian);
   std::vector<double>         medWeight;
+  std::vector<double>         radius2;
+
+  // Precompute squared radius of each metric pixel from the center, for finding local optima
+  if (preferSmallest) {
+    radius2.resize(metric.rows * metric.cols);
+    for (int row = 0, index = 0; row < metric.rows; ++row) {
+      const double            dRow2           = sqr( row - 0.5*metric.rows );
+      for (int col = 0; col < metric.cols; ++col, ++index)
+        radius2[index]        = dRow2 + sqr( col - 0.5*metric.cols );
+    }
+  }
+
 
   // Translation matrix, for use with sub-pixel registration
   cv::Mat                     translator(2, 3, CV_32F);
@@ -341,6 +394,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   
   //---------------------------------------------------------------------------
 
+  const bool                  useMinimum      = (methodCorr == cv::TemplateMatchModes::TM_SQDIFF || methodCorr == cv::TemplateMatchModes::TM_SQDIFF_NORMED);
+  Comparator                  optimReject     = useMinimum ? greaterThan : lessThan;
   int                         iteration       = 0;
   double                      midXShift       = 0;
   double                      midYShift       = 0;
@@ -348,8 +403,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   while (true)
   {
     // Relative index at which the previous shifts were stored
-    const int                 iPrevX          = ( iteration < 1 ? 0 : numFrames );
-    const int                 iPrevY          = ( iteration < 1 ? 0 : numFrames );
+    const int                 iPrevX          = ( iteration < 1 ? 0 : static_cast<int>(numFrames) );
+    const int                 iPrevY          = ( iteration < 1 ? 0 : static_cast<int>(numFrames) );
 
     // Compute median image 
     if (iteration > 1 || refStack.empty()) {
@@ -361,13 +416,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       if (midXShift != 0 || midYShift != 0) {
         cvCall<MedianVecMat32>(imgShifted, frmTemp, traceTemp);
         if (subPixelReg) {
-          xTrans[2]           = -midXShift;
-          yTrans[2]           = -midYShift;
+          xTrans[2]           = static_cast<float>( -midXShift );
+          yTrans[2]           = static_cast<float>( -midYShift );
           cv::warpAffine( frmTemp, imgRef, translator, imgRef.size()
                         , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
                         );
         }
-        else  cvCall<CopyShiftedImage32>(imgRef, frmTemp, midXShift, midYShift, emptyValue[0]);
+        else  cvCall<CopyShiftedImage32>(imgRef, frmTemp, midYShift, midXShift, emptyValue[0]);
       }
       else    cvCall<MedianVecMat32>(imgShifted, imgRef, traceTemp);
     }
@@ -417,9 +472,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       // Obtain metric values for all possible shifts and find the optimum
       cv::Point               optimum;
       cv::matchTemplate(frmInput, refRegion, metric, methodCorr);
-      if (methodCorr == cv::TemplateMatchModes::TM_SQDIFF || methodCorr == cv::TemplateMatchModes::TM_SQDIFF_NORMED)
-            cv::minMaxLoc(metric, optimMetric + iFrame, NULL, &optimum, NULL    );
-      else  cv::minMaxLoc(metric, NULL, optimMetric + iFrame, NULL    , &optimum);
+      if (useMinimum)         cv::minMaxLoc(metric, optimMetric + iFrame, NULL, &optimum, NULL    );
+      else                    cv::minMaxLoc(metric, NULL, optimMetric + iFrame, NULL    , &optimum);
+      if (preferSmallest)     // This is an additional call so that we default to the global optimum
+        findLocalOptimum(metric, radius2, optimum, optimReject);
       dataCopier(metric, CV_32F, ptrMetric);
       ptrMetric              += metricOffset;
 
@@ -427,24 +483,19 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       // If interpolation is desired, use a gaussian peak fit to resolve it
       cv::Mat&                frmShifted      = ( medianRebin > 1 ? frmTemp : imgShifted[iMedian] );
       double                  colShift, rowShift;
-      if (   subPixelReg
-        &&  (optimum.x > 0)
-        &&  (optimum.x < metric.cols-1)
-        &&  (optimum.y > 0)
-        &&  (optimum.y < metric.rows-1)
-         ) {
+      if (subPixelReg) {
 
         // The following are the three rows centered at the optimum
-        const float*          row0            = metric.ptr<float>(optimum.y - 1);
-        const float*          row1            = metric.ptr<float>(optimum.y    );
-        const float*          row2            = metric.ptr<float>(optimum.y + 1);
+        const float*          row0            = optimum.y > 0             ? metric.ptr<float>(optimum.y - 1) : 0;
+        const float*          row1            =                             metric.ptr<float>(optimum.y    )    ;
+        const float*          row2            = optimum.y < metric.rows-1 ? metric.ptr<float>(optimum.y + 1) : 0;
         
         // Precompute the log value once and for all
-        const double          ln10            = log(row1[optimum.x - 1]);
-        const double          ln11            = log(row1[optimum.x    ]);
-        const double          ln12            = log(row1[optimum.x + 1]);
-        const double          ln01            = log(row0[optimum.x    ]);
-        const double          ln21            = log(row2[optimum.x    ]);
+        const double          ln10            = optimum.x > 0             ? log(row1[optimum.x - 1]) : mxGetNaN();
+        const double          ln11            =                             log(row1[optimum.x    ])             ;
+        const double          ln12            = optimum.x < metric.cols-1 ? log(row1[optimum.x + 1]) : mxGetNaN();
+        const double          ln01            = row0                      ? log(row0[optimum.x    ]) : mxGetNaN();
+        const double          ln21            = row2                      ? log(row2[optimum.x    ]) : mxGetNaN();
         
         // 1D Gaussian interpolation in each direction
         double                xPeak           = ( ln10 - ln12 ) / ( 2 * ln10 - 4 * ln11 + 2 * ln12 );
@@ -465,7 +516,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         // Remember that the template is offset so shifts are relative to that
         colShift              = -( optimum.x - firstRefCol );
         rowShift              = -( optimum.y - firstRefRow );
-        cvCall<CopyShiftedImage32>(frmShifted, frmInput, colShift, rowShift, emptyValue[0]);
+        cvCall<CopyShiftedImage32>(frmShifted, frmInput, rowShift, colShift, emptyValue[0]);
       }
 
       // Record history of shifts
