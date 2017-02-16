@@ -85,6 +85,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   end
 
   info.nHasData   = zeros(frameSize);
+  info.nonlinearMotionCorr      = false;
 
   
   %% Loop sequentially over input files and collect chunks of frames
@@ -96,6 +97,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
       img         = cv.imreadx(imageFiles{iFile}, [], [], varargin{:});
     elseif isfield(motionCorr(iFile), 'rigid')
       img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile), doParallel);
+      info.nonlinearMotionCorr  = true;
     else
       img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
     end
@@ -142,7 +144,6 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
       movie(:,:,range)            = img;
     end
   end
-  
   
   %% Don't forget last frame in rebinned movies
   if out.nLeft > 0

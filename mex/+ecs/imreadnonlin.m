@@ -1,5 +1,9 @@
 %% Load a TIFF movie from disk and apply nonlinear motion correction on-the-fly
-function movie = imreadnonlin( inputPath, mcorr, doParallel, gridUpsample )
+%
+% movie is the nonlinearly corrected output.
+% rigid is corrected only up to whole-frame translations.
+%
+function [movie, rigid] = imreadnonlin( inputPath, mcorr, doParallel, gridUpsample )
   
   %% Default arguments
   if nargin < 3
@@ -12,6 +16,7 @@ function movie = imreadnonlin( inputPath, mcorr, doParallel, gridUpsample )
   elseif numel(gridUpsample) < 2
     gridUpsample        = [gridUpsample gridUpsample];
   end
+  clearRigid            = nargout < 2;
   
   %% Upsample patch-based shifts
   nRows                 = mcorr.inputSize(1);
@@ -35,10 +40,10 @@ function movie = imreadnonlin( inputPath, mcorr, doParallel, gridUpsample )
   
   %% Read input movie
   if ischar(inputPath)
-    movie               = cv.imreadx(inputPath, mcorr.rigid.xShifts, mcorr.rigid.yShifts);
+    rigid               = cv.imreadx(inputPath, mcorr.rigid.xShifts, mcorr.rigid.yShifts);
   else
-    movie               = inputPath;
-    movie               = cv.imtranslatex(movie, mcorr.rigid.xShifts(:,end), mcorr.rigid.yShifts(:,end));
+    rigid               = inputPath;
+    rigid               = cv.imtranslatex(rigid, mcorr.rigid.xShifts(:,end), mcorr.rigid.yShifts(:,end));
   end
 
   %% The rest of this is performed using MEX code for speed
@@ -48,7 +53,11 @@ function movie = imreadnonlin( inputPath, mcorr, doParallel, gridUpsample )
     %% Parallelize application of shifts by chunking the movie into subsets of frames
     frameChunks         = round(linspace(1, nFrames+1, pool.NumWorkers + 1));
     chunkSize           = diff(frameChunks);
-    movie               = mat2cell(movie, nRows, nCols, chunkSize);
+    movie               = mat2cell(rigid, nRows, nCols, chunkSize);
+    if clearRigid
+      clear rigid;
+    end
+    
     patchXLoc           = mat2cell(patchXLoc, numel(yCenter), numel(xCenter), chunkSize);
     patchYLoc           = mat2cell(patchYLoc, numel(yCenter), numel(xCenter), chunkSize);
     parfor iChunk = 1:numel(movie)
@@ -57,7 +66,7 @@ function movie = imreadnonlin( inputPath, mcorr, doParallel, gridUpsample )
     movie               = cat(3, movie{:});
     
   else
-    movie               = ecs.barycentricMeshWarp(movie, xCenter, yCenter, patchXLoc, patchYLoc);
+    movie               = ecs.barycentricMeshWarp(rigid, xCenter, yCenter, patchXLoc, patchYLoc);
   end
   
 end

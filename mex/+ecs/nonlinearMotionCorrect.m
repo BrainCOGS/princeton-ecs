@@ -18,17 +18,17 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     medianRebin         = 10;
   end
   if nargin < 6
-%     patchSize           = [129 171];
 %     patchSize           = [255 255];
-    patchSize           = [151 151];
+    patchSize           = [171 171];
+%     patchSize           = [151 151];
 %     patchSize           = [127 127];
 %     patchSize           = [101 101];
   elseif numel(patchSize) < 2
     patchSize           = [patchSize patchSize];
   end
   if nargin < 7
-%     numPatches          = [3 3];
-    numPatches          = [6 6];
+    numPatches          = [5 5];
+%     numPatches          = [6 6];
 %     numPatches          = [7 7];
 %     numPatches          = [8 8];
 %     numPatches          = [10 10];
@@ -36,7 +36,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     numPatches          = [numPatches numPatches];
   end
   if nargin < 8
-    maxShiftDifference  = 1;
+    maxShiftDifference  = 1.5;
   end
   if nargin < 9
     smoothness          = 0.5;
@@ -205,8 +205,11 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   mcorr.inputSize       = inputSize;
   mcorr.method          = 'ecs.nonlinearMotionCorrect';
   mcorr.params          = patchCorr{1}.params;
-  mcorr.params.emptyValue = cellfun(@(x) x.params.emptyValue, patchCorr);
-  mcorr.params.patchSize= patchSize;
+  mcorr.params.emptyValue           = cellfun(@(x) x.params.emptyValue, patchCorr);
+  mcorr.params.patchSize            = patchSize;
+  mcorr.params.numPatches           = numPatches;
+  mcorr.params.maxShiftDifference   = maxShiftDifference;
+  mcorr.params.smoothness           = smoothness;
   mcorr.metric          = [];           % HACK: not stored
   mcorr.reference       = reference;
   mcorr.xCenter         = patchCenter{2};

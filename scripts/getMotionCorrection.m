@@ -11,6 +11,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   if nargin < 4
     varargin                    = {30, 5, false, 0.3};
   end
+  
   forceLoad                     = false;
   if ischar(recompute)
     if strcmpi(recompute, 'never')
@@ -22,6 +23,16 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
       recompute                 = false;
     else
       error('getMotionCorrection:arguments', 'recompute must be either true, false, or the string ''none'', or ''never'' to require that motion correction info already exist.');
+    end
+  end
+  
+  globalComputation             = nargout > 1;
+  if ischar(globalRegistration)
+    if strcmpi(globalRegistration, 'off')
+      globalRegistration        = false;
+      globalComputation         = false;
+    else
+      error('getMotionCorrection:arguments', 'recompute must be either true, false, or the string ''off'' to prohibit computation of global shifts.');
     end
   end
   
@@ -45,6 +56,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     if ~recompute && exist(corrPath{iFile}, 'file')
       mcorr                     = load(corrPath{iFile});
       frameCorr{iFile}          = mcorr.mcorr;
+      doNonlinear               = isfield(frameCorr{iFile}, 'rigid');
     elseif forceLoad
       error('getMotionCorrection:nodata', 'Motion correction information file "%s" not found.', corrPath{iFile});
     end
@@ -92,25 +104,43 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   % for any one constituent file (handle special case where motion correction should be turned off)
   frameCorr                     = [frameCorr{:}];
   params                        = [frameCorr.params];
-  if numel(inputFiles) > 1 && any([params.maxShift] ~= 0)
+  if globalComputation && numel(inputFiles) > 1 && any([params.maxShift] ~= 0)
     refImage                    = cat(3, frameCorr.reference);
     
-    if doNonlinear              % HACK: Hard-coded
-      fileCorr                  = cv.motionCorrect(refImage, 30, 5, false, 0.3);
+    if doNonlinear              % HACK these parameters are hard-coded 
+      %% If constituent files are nonlinearly corrected, the global registration should also be and inherit their parameters
+      params                    = [frameCorr.params];
+      if ~isequaln(params.patchSize) || ~isequaln(params.numPatches) || ~isequaln(params.maxShiftDifference) || ~isequaln(params.smoothness)
+        error('getMotionCorrection:nonlinear', 'Inconsistent parameters used for nonlinear motion correction per file, cannot compute global shifts.');
+      end
+      params                    = params(1);
+      fileCorr                  = ecs.nonlinearMotionCorrect( refImage, [30 10], [5 1], 0.3, 1                ...
+                                                            , params.patchSize, params.numPatches             ...
+                                                            , params.maxShiftDifference, params.smoothness    ...
+                                                            );
+
+      %% Separately add rigid and per-patch shifts; note that changes to rigid shifts also affect the patches displacements
+      for iFile = 1:numel(inputFiles)
+        rigidDx                                   = fileCorr.rigid.xShifts(iFile,end);
+        rigidDy                                   = fileCorr.rigid.yShifts(iFile,end);
+        frameCorr(iFile).rigid.xShifts(:,end+1)   = frameCorr(iFile).rigid.xShifts(:,end) + rigidDx;
+        frameCorr(iFile).rigid.yShifts(:,end+1)   = frameCorr(iFile).rigid.yShifts(:,end) + rigidDy;
+        
+        %% Centers for the original shifts are relocated, we interpolate back in order to shift them by the global amount
+        [frameCorr(iFile).xShifts, frameCorr(iFile).xCenter]                  ...
+                                                  = relocatePatchShifts(frameCorr(iFile).xShifts, frameCorr(iFile).xCenter + rigidDx, frameCorr(iFile).xCenter);
+        [frameCorr(iFile).xShifts, frameCorr(iFile).xCenter]                  ...
+                                                  = relocatePatchShifts(frameCorr(iFile).xShifts, frameCorr(iFile).yCenter + rigidDy, frameCorr(iFile).xCenter);
+        frameCorr(iFile).xCenter                  = frameCorr(iFile).xCenter              + rigidDx;
+        frameCorr(iFile).yCenter                  = frameCorr(iFile).yCenter              + rigidDy;
+        frameCorr(iFile).xShifts                  = bsxfun(@plus, frameCorr(iFile).xShifts, fileCorr.xShifts(:,:,iFile));
+        frameCorr(iFile).yShifts                  = bsxfun(@plus, frameCorr(iFile).yShifts, fileCorr.yShifts(:,:,iFile));
+      end
+        
     else
+      %% For rigid motion correction the global shifts are added to the per-file shifts
       fileCorr                  = cv.motionCorrect(refImage, varargin{1:min(4,end)});
-    end
-    
-    %% Apply global shifts to the rigid translation list; this is different for nonlinearly corrected
-    if globalRegistration
-      if isfield(frameCorr, 'rigid')
-        for iFile = 1:numel(inputFiles)
-          frameCorr(iFile).rigid.xShifts(:,end+1) = frameCorr(iFile).rigid.xShifts(:,end) + fileCorr.xShifts(iFile, end);
-          frameCorr(iFile).rigid.yShifts(:,end+1) = frameCorr(iFile).rigid.yShifts(:,end) + fileCorr.yShifts(iFile, end);
-          frameCorr(iFile).xCenter                = frameCorr(iFile).xCenter + fileCorr.xShifts(iFile, end);
-          frameCorr(iFile).yCenter                = frameCorr(iFile).yCenter + fileCorr.yShifts(iFile, end);
-        end
-      else
+      if globalRegistration
         for iFile = 1:numel(inputFiles)
           frameCorr(iFile).xShifts(:,end+1)       = frameCorr(iFile).xShifts(:,end) + fileCorr.xShifts(iFile, end);
           frameCorr(iFile).yShifts(:,end+1)       = frameCorr(iFile).yShifts(:,end) + fileCorr.yShifts(iFile, end);
@@ -118,7 +148,8 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
       end
     end
     
-  else
+  elseif nargout > 1
+    %% No global registration
     fileCorr                    = frameCorr(1);
     fileCorr.xShifts            = zeros(numel(inputFiles), 1);
     fileCorr.yShifts            = zeros(numel(inputFiles), 1);
@@ -127,5 +158,23 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
 
   %% Restore parallel pool settings
   parSettings.Pool.AutoCreate   = origAutoCreate;
+  
+end
+
+%---------------------------------------------------------------------------------------------------
+function [shifts, centers] = relocatePatchShifts(origShifts, origCenters, targetCenters)
+  
+  %% Bi-cubic interpolation between patch centers
+  numFrames                 = size(origShifts,3);
+  shifts                    = nan([gridSize + 2, numFrames], 'like', origShifts);
+  shifts(2:end-1,2:end-1,:) = imresize( origShifts, gridSize, 'bicubic' );
+  
+  %% Assume constant extrapolations up to the borders of the movie
+  shifts(2:end-1,1,:)       = shifts(2:end-1,2,:);
+  shifts(2:end-1,end,:)     = shifts(2:end-1,end-1,:);
+  shifts(1,2:end-1,:)       = shifts(2,2:end-1,:);
+  shifts(end,2:end-1,:)     = shifts(end-1,2:end-1,:);
+  shifts(1,[1 end],:)       = shifts(2,[1 end],:);
+  shifts(end,[1 end],:)     = shifts(end-1,[1 end],:);
   
 end
