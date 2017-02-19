@@ -66,6 +66,7 @@ bool readVectorField(char*& desc, const char* fieldName, const size_t nameLength
 }
 
 
+
 ///////////////////////////////////////////////////////////////////////////
 // Main entry point to a MEX function
 ///////////////////////////////////////////////////////////////////////////
@@ -141,12 +142,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       else  sampleFormat      = SAMPLEFORMAT_IEEEFP;
     }
 
-    // Special case for ScanImage files: Parse image description tag
+    // Special case for ScanImage files: Parse image description tag for list of saved channels
     char*                     desc          = NULL;
-    std::vector<int>          channels;
-    if (TIFFGetField(img, TIFFTAG_IMAGEDESCRIPTION, &desc)) {
-      // Locate list of saved channels
-      readVectorField(desc, CHANNELS_NAME, N_CHANNELSNAME, channels);
+    if (iIn == 0 && TIFFGetField(img, TIFFTAG_IMAGEDESCRIPTION, &desc)) {
+      readVectorField(desc, CHANNELS_NAME, N_CHANNELSNAME, srcChannels);
     }
 
 
@@ -156,27 +155,28 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       if (srcHeight != height       )   mexErrMsgIdAndTxt("imfinfox:stack", "Image height for '%s' is inconsistent with other file(s)."   , inputPath[iIn]);
       if (srcBits   != bitsPerSample)   mexErrMsgIdAndTxt("imfinfox:stack", "Bits per sample for '%s' is inconsistent with other file(s).", inputPath[iIn]);
       if (srcFormat != sampleFormat )   mexErrMsgIdAndTxt("imfinfox:stack", "Sample format for '%s' is inconsistent with other file(s)."  , inputPath[iIn]);
-      if (srcChannels.size() != channels.size())
-        mexErrMsgIdAndTxt("imfinfox:stack", "Number of channels for '%s' is inconsistent with other file(s).", inputPath[iIn]);
-      for (size_t iChannel = 0; iChannel < channels.size(); ++iChannel)
-        if (srcChannels[iChannel] != channels[iChannel])
-          mexErrMsgIdAndTxt("imfinfox:stack", "Channel %d for '%s' is inconsistent with other file(s).", channels[iChannel], inputPath[iIn]);
+      //if (srcChannels.size() != channels.size())
+      //  mexErrMsgIdAndTxt("imfinfox:stack", "Number of channels for '%s' is inconsistent with other file(s).", inputPath[iIn]);
+      //for (size_t iChannel = 0; iChannel < channels.size(); ++iChannel)
+      //  if (srcChannels[iChannel] != channels[iChannel])
+      //    mexErrMsgIdAndTxt("imfinfox:stack", "Channel %d for '%s' is inconsistent with other file(s).", channels[iChannel], inputPath[iIn]);
     }
     else {
       srcWidth                = width;
       srcHeight               = height;
       srcBits                 = bitsPerSample;
       srcFormat               = sampleFormat;
-      srcChannels             = channels;
+      //srcChannels             = channels;
     }
 
 
     if (lazy) break;
 
-    do {
-      ++( numFrames[iIn] );
-    } while (TIFFReadDirectory(img));
+    //do {
+    //  ++( numFrames[iIn] );
+    //} while (TIFFReadDirectory(img));
 
+    numFrames[iIn]            = TIFFNumberOfDirectories(img);
     totalFrames              += numFrames[iIn];
     if (totalFrames >= maxNumFrames)          break;
   }
@@ -188,6 +188,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn)
     mxSetCell(matInput, iIn, mxCreateString(inputPath[iIn]));
 
+
+  // Number of stored channels defaults to 1
+  if (srcChannels.empty())    srcChannels.push_back(1);
   mxArray*                    matChannels     = mxCreateDoubleMatrix(1, srcChannels.size(), mxREAL);
   double*                     channels        = (double*) mxGetData(matChannels);
   for (size_t iChannel = 0; iChannel < srcChannels.size(); ++iChannel)

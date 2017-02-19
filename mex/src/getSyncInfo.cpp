@@ -2,7 +2,7 @@
   Parses the TIFF file header to extract ScanImage specific synchronization information.
 
   Usage syntax:
-      [acquisition, epoch, frameTime, dataTime, data] = getSyncInfo(inputFile, dataType)
+      [acquisition, epoch, frameTime, dataTime, data] = getSyncInfo(inputFile, dataType, frameSkip = [0 0])
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -79,7 +79,7 @@ bool readVectorField(char*& desc, const char* fieldName, const size_t nameLength
 
 //=============================================================================
 template<typename Number, int NumBytes>
-void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpoch, mxArray*& matFrameTime, mxArray*& matDataTime, mxArray*& matData, const mxClassID dataClass)
+void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpoch, mxArray*& matFrameTime, mxArray*& matDataTime, mxArray*& matData, const mxClassID dataClass, const int firstFrame, const int skipFrames)
 {
   //----- Preallocate scratch space
   std::vector<double>   acquisition, epoch;
@@ -91,6 +91,8 @@ void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpo
   //----- Loop through directory headers
   TIFF*                 img           = TIFFOpen(inputFile, "r");
   if (img == NULL)      mexErrMsgIdAndTxt("getSyncInfo:input", "Failed to load input file '%s'.", inputFile);
+  for (int iSkip = 0; iSkip < firstFrame; ++iSkip)
+    TIFFReadDirectory(img);
 
 
   size_t                nFrames       = 0;
@@ -173,6 +175,8 @@ void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpo
     }
     
     ++nFrames;
+    for (int iSkip = 0; iSkip < skipFrames; ++iSkip)
+      TIFFReadDirectory(img);
   } while (TIFFReadDirectory(img));
 
 
@@ -214,13 +218,14 @@ void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpo
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
   //----- Parse arguments
-  if (nlhs != 5 || nrhs != 2) {
+  if (nlhs != 5 || nrhs < 2 || nrhs > 3) {
     mexEvalString("help ecs.getSyncInfo");
     mexErrMsgIdAndTxt ( "getSyncInfo:usage", "Incorrect number of inputs/outputs provided." );
   }
 
   const mxArray*        matInput      = prhs[0];
   const mxArray*        matType       = prhs[1];
+  const mxArray*        frameSkip     = ( nrhs > 2 ? prhs[2] : 0 );
   if (!mxIsChar(matInput))
     mexErrMsgIdAndTxt("getSyncInfo:arguments", "inputFile must be a character array.");
   if (!mxIsChar(matType))
@@ -233,17 +238,28 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   std::vector<char>     dataType(mxGetNumberOfElements(matType) + 1);
   mxGetString(matType, dataType.data(), static_cast<mwSize>(dataType.size()));
 
+  // Frame skipping if so desired
+  int                   firstFrame      = 0;
+  int                   skipFrames      = 0;
+  if (frameSkip) {
+    if (mxGetNumberOfElements(frameSkip) != 2)
+      mexErrMsgIdAndTxt( "motionCorrect:arguments", "frameSkip must be a 2-element array [offset, skip]." );
+    const double*       skip            = mxGetPr(frameSkip);
+    firstFrame          = static_cast<int>( skip[0] );
+    skipFrames          = static_cast<int>( skip[1] );
+  }
 
-  if      (strcmp(dataType.data(), "int8"  ) == 0)   parseInfo<char          , 1>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT8_CLASS  );
-  else if (strcmp(dataType.data(), "uint8" ) == 0)   parseInfo<unsigned char , 1>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT8_CLASS );  
-  else if (strcmp(dataType.data(), "int16" ) == 0)   parseInfo<short         , 2>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT16_CLASS );  
-  else if (strcmp(dataType.data(), "uint16") == 0)   parseInfo<unsigned short, 2>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT16_CLASS);  
-  else if (strcmp(dataType.data(), "int32" ) == 0)   parseInfo<int           , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT32_CLASS );  
-  else if (strcmp(dataType.data(), "uint32") == 0)   parseInfo<unsigned int  , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT32_CLASS);  
-  else if (strcmp(dataType.data(), "int64" ) == 0)   parseInfo<int64_t       , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT64_CLASS );  
-  else if (strcmp(dataType.data(), "uint64") == 0)   parseInfo<uint64_t      , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT64_CLASS);  
-  else if (strcmp(dataType.data(), "single") == 0)   parseInfo<float         , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxSINGLE_CLASS);
-  else if (strcmp(dataType.data(), "double") == 0)   parseInfo<double        , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxDOUBLE_CLASS);  
+
+  if      (strcmp(dataType.data(), "int8"  ) == 0)   parseInfo<char          , 1>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT8_CLASS  , firstFrame, skipFrames);
+  else if (strcmp(dataType.data(), "uint8" ) == 0)   parseInfo<unsigned char , 1>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT8_CLASS , firstFrame, skipFrames);  
+  else if (strcmp(dataType.data(), "int16" ) == 0)   parseInfo<short         , 2>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT16_CLASS , firstFrame, skipFrames);  
+  else if (strcmp(dataType.data(), "uint16") == 0)   parseInfo<unsigned short, 2>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT16_CLASS, firstFrame, skipFrames);  
+  else if (strcmp(dataType.data(), "int32" ) == 0)   parseInfo<int           , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT32_CLASS , firstFrame, skipFrames);  
+  else if (strcmp(dataType.data(), "uint32") == 0)   parseInfo<unsigned int  , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT32_CLASS, firstFrame, skipFrames);  
+  else if (strcmp(dataType.data(), "int64" ) == 0)   parseInfo<int64_t       , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxINT64_CLASS , firstFrame, skipFrames);  
+  else if (strcmp(dataType.data(), "uint64") == 0)   parseInfo<uint64_t      , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxUINT64_CLASS, firstFrame, skipFrames);  
+  else if (strcmp(dataType.data(), "single") == 0)   parseInfo<float         , 4>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxSINGLE_CLASS, firstFrame, skipFrames);
+  else if (strcmp(dataType.data(), "double") == 0)   parseInfo<double        , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxDOUBLE_CLASS, firstFrame, skipFrames);  
   else    mexErrMsgIdAndTxt("getSyncInfo:dataType", "Unsupported dataType '%s'.", dataType.data());
 }
 

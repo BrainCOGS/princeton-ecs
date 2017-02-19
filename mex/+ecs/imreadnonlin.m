@@ -6,7 +6,7 @@
 function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel, gridUpsample )
   
   %% Default arguments
-  if nargin < 3
+  if nargin < 3 || isempty(frameSkip)
     frameSkip           = [0 0];
   end
   if nargin < 4

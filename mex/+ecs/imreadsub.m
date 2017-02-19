@@ -26,11 +26,20 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     verbose       = false;
   end
   
+  if isempty(varargin)
+    varargin      = {1, 1, []};
+  elseif numel(varargin) == 1
+    varargin      = [varargin, {1, []}];
+  elseif numel(varargin) == 2
+    varargin      = [varargin, {[]}];
+  end
+  
+  
   %% Option to crop border containing motion correction artifacts (some frames with no data)
+  info            = ecs.imfinfox(imageFiles);
   if ~isempty(cropping)
     frameSize     = cropping.selectSize;
   elseif isempty(motionCorr)
-    info          = ecs.imfinfox(imageFiles{1});
     frameSize     = [info.height, info.width];
   else
     frameSize     = size(motionCorr(1).reference);
@@ -51,12 +60,17 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   
   
   %% Compute movie size
-  info            = ecs.imfinfox(imageFiles);
   if isempty(motionCorr)
     dataType      = sprintf('%s%d', lower(info.sampleFormat), info.bitsPerSample);
+    frameSkip     = [0 0];
   else
+    frameSkip     = motionCorr(1).params.frameSkip;
     dataType      = class(motionCorr(1).reference);
   end
+  varargin{3}     = frameSkip;
+  
+  %% Adjust number of frames for skips and binning
+  info.fileFrames = arrayfun(@(x) ceil((x - frameSkip(1)) / (1 + frameSkip(2))), info.fileFrames);
   totalFrames     = ceil(sum(info.fileFrames) / frameGrouping);
   inputSize       = [frameSize, totalFrames];
   if isempty(pixelIndex)
@@ -64,6 +78,9 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   else
     movieSize     = [numel(pixelIndex) + 1, totalFrames];
   end
+  
+  
+  %% Report number of required bytes
   if verbose
     dataFcn       = str2func(dataType);
     movieBytes    = prod(movieSize) * numel(typecast(dataFcn(0), 'int8'));
@@ -96,7 +113,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     if isempty(motionCorr)
       img         = cv.imreadx(imageFiles{iFile}, [], [], varargin{:});
     elseif isfield(motionCorr(iFile), 'rigid')
-      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile), doParallel);
+      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile), frameSkip, doParallel);
       info.nonlinearMotionCorr  = true;
     else
       img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
