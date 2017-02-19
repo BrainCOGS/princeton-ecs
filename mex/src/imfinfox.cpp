@@ -22,6 +22,7 @@
 #include <limits>
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <mex.h>
 #include <tiffio.h>
 
