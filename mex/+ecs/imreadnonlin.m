@@ -3,13 +3,16 @@
 % movie is the nonlinearly corrected output.
 % rigid is corrected only up to whole-frame translations.
 %
-function [movie, rigid] = imreadnonlin( inputPath, mcorr, doParallel, gridUpsample )
+function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel, gridUpsample )
   
   %% Default arguments
   if nargin < 3
-    doParallel          = ~isempty(gcp('nocreate'));
+    frameSkip           = [0 0];
   end
   if nargin < 4
+    doParallel          = ~isempty(gcp('nocreate'));
+  end
+  if nargin < 5
 %     gridUpsample        = [4 4];
     gridUpsample        = [2 2];
 %     gridUpsample        = [1 1];
@@ -40,9 +43,12 @@ function [movie, rigid] = imreadnonlin( inputPath, mcorr, doParallel, gridUpsamp
   
   %% Read input movie
   if ischar(inputPath)
-    rigid               = cv.imreadx(inputPath, mcorr.rigid.xShifts, mcorr.rigid.yShifts);
+    rigid               = cv.imreadx(inputPath, mcorr.rigid.xShifts, mcorr.rigid.yShifts, 1, 1, frameSkip);
   else
     rigid               = inputPath;
+    if any(frameSkip ~= 0)
+      rigid             = rigid(:,:,1 + frameSkip(1): 1 + frameSkip(2):end);
+    end
     rigid               = cv.imtranslatex(rigid, mcorr.rigid.xShifts(:,end), mcorr.rigid.yShifts(:,end));
   end
 

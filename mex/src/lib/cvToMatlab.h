@@ -79,23 +79,27 @@ struct MatlabToCVMat
     cvTypeCall<MatlabToCVMatHelper, Data>(image, data + numRows*numCols*iFrame, iFrame);
   }
 
-  void operator()(std::vector<cv::Mat>& imgStack, const int dataType, const mxArray* input)
+  void operator()(std::vector<cv::Mat>& imgStack, const int dataType, const mxArray* input, const size_t firstFrame = 0, const size_t skipFrames = 0)
   {
     // Compute number of frames from dimensions >= 3
     const size_t*             inputSize       = mxGetDimensions(input);
     size_t                    numFrames       = 1;
     for (size_t iDim = 2, maxDims = mxGetNumberOfDimensions(input); iDim < maxDims; ++iDim)
       numFrames              *= inputSize[iDim];
+    numFrames                 = static_cast<size_t>( std::ceil( 1.0 * (numFrames - firstFrame) / (1 + skipFrames) ) );
     imgStack.resize(numFrames);
 
-    // Loop through and process each frame
+    // Parameters for looping through source frames
+    size_t                    numPixels       = inputSize[0] * inputSize[1];
     const Data*               inputData       = (const Data*) mxGetData(input);
+    inputData                += firstFrame * numPixels;
+    numPixels                *= 1 + skipFrames;
+
+    // Loop through and process each frame
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame) {
       imgStack[iFrame].create(static_cast<int>(inputSize[0]), static_cast<int>(inputSize[1]), dataType);
       cvTypeCall<MatlabToCVMatHelper, Data>(imgStack[iFrame], inputData);
-
-      // Set write pointer to the end of the read data
-      inputData              += inputSize[0] * inputSize[1];
+      inputData              += numPixels;
     }
   }
 };

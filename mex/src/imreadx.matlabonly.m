@@ -17,7 +17,7 @@ function movie = imreadx(inputPath, xShifts, yShifts, xScale, yScale, maxNumFram
     error('imreadx:arguments', 'Additional cv.imreadx() options not available in pure Matlab version.');
   end
   
-  % Input check
+  %% Input check
   if ischar(inputPath)
     inputPath         = {inputPath};
   end
@@ -42,50 +42,75 @@ function movie = imreadx(inputPath, xShifts, yShifts, xScale, yScale, maxNumFram
     error('imreadx:arguments', 'xScale/yScale not supported yet.');
   end
   
+  %% Read out subsets of frames
+  frameOffset         = 0;
+  frameSkip           = 0;
+  if isempty(maxNumFrames)
+    maxNumFrames      = inf;
+  elseif numel(maxNumFrames) > 1
+    frameOffset       = maxNumFrames(1);
+    frameSkip         = maxNumFrames(2);
+    if numel(maxNumFrames) > 2
+      maxNumFrames    = maxNumFrames(3);
+    else
+      maxNumFrames    = inf;
+    end
+  end
   
-  % Data format
+  
+  %% Data format
   info                = ecs.imfinfox(inputPath);
   if info.bitsPerSample <= 32
     dataType          = 'single';
   else
     dataType          = 'double';
   end
+  info.fileFrames     = arrayfun(@(x) ceil((x - frameOffset) / (1 + frameSkip)), info.fileFrames);
+  info.frames         = min(sum(info.fileFrames), maxNumFrames);
   
-  
+  %% Preallocate output
   if numel(inputPath) > 1
     movie             = zeros([info.width, info.height, info.frames], dataType);
   end
+  
+  %% Loop through input files
   numFrames           = 0;
   for iFile = 1:numel(inputPath)
+    %% TIFF reader
+    fileFrames        = min( info.fileFrames(iFile), info.frames - numFrames );
+    img               = zeros(info.height, info.width, fileFrames, dataType);
     source            = Tiff(inputPath{iFile}, 'r');
-    img               = zeros(info.height, info.width, info.fileFrames(iFile), dataType);
-    
-    iFrame            = 0;
-    while true
-      iFrame          = iFrame + 1;
-      img(:,:,iFrame) = source.read();
-      if source.lastDirectory()
-        break;
-      end
+    for iSkip = 1:frameOffset
       source.nextDirectory();
+    end
+      
+    %% Get requested frames
+    img(:,:,1)        = source.read();
+    for iFrame = 2:fileFrames
+      for iSkip = 0:frameSkip
+        source.nextDirectory();
+      end
+      img(:,:,iFrame) = source.read();
     end
     source.close();
 
-    if iFrame ~= info.fileFrames(iFile)
-      error('parimread:Tiff', 'Inconsistent number of frames %d read by Tiff vs. expected count %d.', iFrame, info.fileFrames(iFile));
-    end
-
     
-    iFrame            = numFrames + (1:size(img,3));
+    %% Apply motion correction if so desired
+    iFrame            = numFrames + (1:fileFrames);
     if doTranslate
       img             = cv.imtranslatex(img, xShifts(iFrame,end), yShifts(iFrame,end));
     end
+    
+    %% Store in output tensor
     if numel(inputPath) > 1
       movie(:,:,iFrame) = img;
     else
       movie           = img;
     end
-    numFrames         = numFrames + size(img,3);
+    numFrames         = numFrames + fileFrames;
+    if numFrames >= info.frames
+      break;
+    end
   end
   
 end

@@ -23,8 +23,8 @@
   template for data that is very noisy or close to zero per frame.
 
   The frameSkip parameter allows one to subsample the input movie in terms of frames.
-  It should be provided as a pair [offset, skip] where offset is the first frame to
-  read, and skip is the number of frames to skip between reads. For example, 
+  It should be provided as a pair [offset, skip] where offset is the first frames to
+  skip, and skip is the number of frames to skip between reads. For example, 
   frameSkip = [1 1] will start reading from the *second* frame and skip every other 
   frame, i.e. read all even frames for motion correction. The produced shifts will
   thus be fewer than the full movie and equal to the number of subsampled frames.
@@ -205,6 +205,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     input                     = mxGetCell(input, 0);
   }
 
+  // Frame skipping if so desired
+  int                         firstFrame      = 0;
+  int                         skipFrames      = 0;
+  if (frameSkip) {
+    if (mxGetNumberOfElements(frameSkip) != 2)
+      mexErrMsgIdAndTxt( "motionCorrect:arguments", "frameSkip must be a 2-element array [offset, skip]." );
+    const double*             skip            = mxGetPr(frameSkip);
+    firstFrame                = cv::saturate_cast<int>( skip[0] );
+    skipFrames                = cv::saturate_cast<int>( skip[1] );
+  }
+
+
   // If a matrix is directly provided, need to copy it into OpenCV format
   char*                       inputPath       = ( mxIsChar(input) 
                                                && mxGetNumberOfDimensions(input) < 3 
@@ -213,23 +225,27 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                                                 : 0 
                                                 );
   if (!inputPath)
-    cvMatlabCall<MatlabToCVMat>(imgStack, mxGetClassID(input), input);
+    cvMatlabCall<MatlabToCVMat>(imgStack, mxGetClassID(input), input, firstFrame, skipFrames);
 
   // Otherwise load image with stored bit depth
+#ifdef __OPENCV_HACK_SAK__
+  else if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_UNCHANGED, firstFrame, skipFrames))
+      mexErrMsgIdAndTxt( "motionCorrect:load", "Failed to load input image." );
+
+#else
   else if (!cv::imreadmulti(inputPath, imgStack, cv::ImreadModes::IMREAD_UNCHANGED))
       mexErrMsgIdAndTxt( "motionCorrect:load", "Failed to load input image." );
 
-
-  // Frame skipping if so desired
-  if (frameSkip) {
-    if (mxGetNumberOfElements(frameSkip) != 2)
-      mexErrMsgIdAndTxt( "motionCorrect:arguments", "frameSkip must be a 2-element array [offset, skip]." );
-    const double*             skip            = mxGetPr(frameSkip);
+  // Inefficient frame skipping if we can't hack OpenCV
+  else if (frameSkip) {
     int                       iOutput         = 0;
-    for (int iInput = static_cast<int>(skip[0]); iInput < imgStack.size(); iInput += 1 + static_cast<int>(skip[1]), ++iOutput)
+    for (int iInput = firstFrame; iInput < imgStack.size(); iInput += 1 + skipFrames, ++iOutput)
       imgStack[iOutput]       = imgStack[iInput];
     imgStack.resize(iOutput);
   }
+#endif //__OPENCV_HACK_SAK__
+
+
 
   // Sanity checks on image stack
   if (imgStack.empty())

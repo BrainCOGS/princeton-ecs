@@ -6,13 +6,13 @@
   correction shifts, and so forth.
 
   Usage syntax:
-    info = imfinfox( inputPath );
+    info = imfinfox( inputPath, [lazy = false] );
   where inputPath can be either a string (single file), or a cellstring for 
   multi-file stacks.
 
-  Note that this function checks that all images in the stack have the same
-  width and height. An exception will be thrown if discrepancies are 
-  encountered.
+  Note that if lazy = false, this function checks that all images in the stack 
+  have the same width and height. An exception will be thrown if discrepancies 
+  are encountered.
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -21,11 +21,49 @@
 #include <vector>
 #include <limits>
 #include <algorithm>
+#include <cctype>
 #include <mex.h>
 #include <tiffio.h>
 
 #undef max
 
+
+
+static const char       CHANNELS_NAME[] = "scanimage.SI.hChannels.channelSave";
+static const size_t     N_CHANNELSNAME  = std::strlen(CHANNELS_NAME);
+
+
+
+template<typename Number>
+bool readVectorField(char*& desc, const char* fieldName, const size_t nameLength, std::vector<Number>& data)
+{
+  for (; *desc; ++desc) {
+    // Locate field name
+    if (std::strncmp(desc, fieldName, nameLength)) {
+      while (*desc && *desc != '\n')          ++desc;     // skip until end of line
+    }
+    else {            // match
+      for (desc += nameLength; *desc != '['; ++desc) {
+        if (!*desc || *desc == '\n')
+          return false;
+        if (std::isdigit(*desc)) {
+          --desc;
+          break;
+        }
+      }
+
+      // Parse results as base-10 integers
+      for (++desc; *desc != ']' && *desc != '\n' && *desc;) {
+        data.push_back(std::strtol(desc, &desc, 10));
+        while (*desc == ';' || *desc == ',')  ++desc;     // skip item specifiers
+      }
+
+      while (*desc && *desc != '\n')          ++desc;     // skip until end of line
+      return true;
+    }
+  }
+  return false;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -36,13 +74,14 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
-  if (nrhs < 1 || nrhs > 2 || nlhs != 1) {
+  if (nrhs < 1 || nrhs > 3) {
     mexEvalString("help ecs.imfinfox");
     mexErrMsgIdAndTxt ( "imfinfox:usage", "Incorrect number of inputs/outputs provided." );
   }
 
   // Handle single vs. multiple input files
   const mxArray*              input           = prhs[0];
+  const bool                  lazy            = nrhs > 1 ? mxGetScalar(prhs[1]) > 0 : false;
   std::vector<char*>          inputPath;
   if (mxIsCell(input)) {
     inputPath.resize(mxGetNumberOfElements(input));
@@ -73,6 +112,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   size_t                      totalFrames     = 0;
   mxArray*                    matNumFrames    = mxCreateDoubleMatrix(1, inputPath.size(), mxREAL);
   double*                     numFrames       = mxGetPr(matNumFrames);
+  std::vector<int>            srcChannels;
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn) 
   {
     TIFF*                     img             = TIFFOpen(inputPath[iIn], "r");
@@ -101,6 +141,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       else  sampleFormat      = SAMPLEFORMAT_IEEEFP;
     }
 
+    // Special case for ScanImage files: Parse image description tag
+    char*                     desc          = NULL;
+    std::vector<int>          channels;
+    if (TIFFGetField(img, TIFFTAG_IMAGEDESCRIPTION, &desc)) {
+      // Locate list of saved channels
+      readVectorField(desc, CHANNELS_NAME, N_CHANNELSNAME, channels);
+    }
+
 
     // Check for consistency across stack
     if (iIn > 0) {
@@ -108,14 +156,22 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       if (srcHeight != height       )   mexErrMsgIdAndTxt("imfinfox:stack", "Image height for '%s' is inconsistent with other file(s)."   , inputPath[iIn]);
       if (srcBits   != bitsPerSample)   mexErrMsgIdAndTxt("imfinfox:stack", "Bits per sample for '%s' is inconsistent with other file(s).", inputPath[iIn]);
       if (srcFormat != sampleFormat )   mexErrMsgIdAndTxt("imfinfox:stack", "Sample format for '%s' is inconsistent with other file(s)."  , inputPath[iIn]);
+      if (srcChannels.size() != channels.size())
+        mexErrMsgIdAndTxt("imfinfox:stack", "Number of channels for '%s' is inconsistent with other file(s).", inputPath[iIn]);
+      for (size_t iChannel = 0; iChannel < channels.size(); ++iChannel)
+        if (srcChannels[iChannel] != channels[iChannel])
+          mexErrMsgIdAndTxt("imfinfox:stack", "Channel %d for '%s' is inconsistent with other file(s).", channels[iChannel], inputPath[iIn]);
     }
     else {
       srcWidth                = width;
       srcHeight               = height;
       srcBits                 = bitsPerSample;
       srcFormat               = sampleFormat;
+      srcChannels             = channels;
     }
 
+
+    if (lazy) break;
 
     do {
       ++( numFrames[iIn] );
@@ -132,6 +188,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   for (size_t iIn = 0; iIn < inputPath.size(); ++iIn)
     mxSetCell(matInput, iIn, mxCreateString(inputPath[iIn]));
 
+  mxArray*                    matChannels     = mxCreateDoubleMatrix(1, srcChannels.size(), mxREAL);
+  double*                     channels        = (double*) mxGetData(matChannels);
+  for (size_t iChannel = 0; iChannel < srcChannels.size(); ++iChannel)
+    channels[iChannel]        = srcChannels[iChannel];
+
+
   static const char*          OUT_FIELDS[]    = { "width"
                                                 , "height"
                                                 , "bitsPerSample"
@@ -139,8 +201,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                                                 , "frames"
                                                 , "filePaths"
                                                 , "fileFrames"
+                                                , "channels"
                                                 };
-  plhs[0]                     = mxCreateStructMatrix(1, 1, 7, OUT_FIELDS);
+  plhs[0]                     = mxCreateStructMatrix(1, 1, 8, OUT_FIELDS);
   mxSetFieldByNumber(plhs[0], 0, 0, mxCreateDoubleScalar(srcWidth));
   mxSetFieldByNumber(plhs[0], 0, 1, mxCreateDoubleScalar(srcHeight));
   mxSetFieldByNumber(plhs[0], 0, 2, mxCreateDoubleScalar(srcBits));
@@ -156,4 +219,5 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   mxSetFieldByNumber(plhs[0], 0, 4, mxCreateDoubleScalar(std::min(totalFrames, maxNumFrames)));
   mxSetFieldByNumber(plhs[0], 0, 5, matInput);
   mxSetFieldByNumber(plhs[0], 0, 6, matNumFrames);
+  mxSetFieldByNumber(plhs[0], 0, 7, matChannels);
 }

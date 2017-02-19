@@ -1,4 +1,4 @@
-function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowShift, medianRebin, patchSize, numPatches, maxShiftDifference, smoothness)
+function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowShift, medianRebin, frameSkip, patchSize, numPatches, maxShiftDifference, smoothness)
      
   %% Default arguments
   if nargin < 2
@@ -18,6 +18,9 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     medianRebin         = 10;
   end
   if nargin < 6
+    frameSkip           = [0 0];
+  end
+  if nargin < 7
 %     patchSize           = [255 255];
     patchSize           = [171 171];
 %     patchSize           = [151 151];
@@ -26,7 +29,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   elseif numel(patchSize) < 2
     patchSize           = [patchSize patchSize];
   end
-  if nargin < 7
+  if nargin < 8
     numPatches          = [5 5];
 %     numPatches          = [6 6];
 %     numPatches          = [7 7];
@@ -35,10 +38,10 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   elseif numel(patchSize) < 2
     numPatches          = [numPatches numPatches];
   end
-  if nargin < 8
+  if nargin < 9
     maxShiftDifference  = 1.5;
   end
-  if nargin < 9
+  if nargin < 10
     smoothness          = 0.5;
   end
   
@@ -49,12 +52,17 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   else
     movie               = inputPath;
   end
+  if any(frameSkip ~= 0)
+    movie               = movie(:,:,1 + frameSkip(1): 1 + frameSkip(2):end);
+  end
+  
 
   %% Rigid motion correction
   mcorr                 = struct();
   mcorr.rigid           = cv.motionCorrect(movie, maxShift(1), maxIter(1), false, stopBelowShift, nan, medianRebin);
   movie                 = cv.imtranslatex(movie, mcorr.rigid.xShifts(:,end), mcorr.rigid.yShifts(:,end));
-  mcorr.rigid.cropping  = getMovieCropping(mcorr.rigid);
+  mcorr.rigid.cropping  = getMovieCropping(mcorr.rigid, true, sum(isnan(movie),3) > 0);
+  mcorr.rigid.params.frameSkip  = frameSkip;
   
   
   %% 
@@ -76,6 +84,9 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   for iRow = 1:numPatches(1)
     for iCol = 1:numPatches(2)
       moviePatch{iRow,iCol} = movie( patchSpan{1}(:,iRow), patchSpan{2}(:,iCol), : );
+      if sum(~isfinite(moviePatch{iRow,iCol}(:))) > 0
+        error('nonlinearMotionCorrect:input', 'Non-finite values encountered in input movie.');
+      end
     end
   end
   clear movie;
@@ -205,6 +216,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   mcorr.inputSize       = inputSize;
   mcorr.method          = 'ecs.nonlinearMotionCorrect';
   mcorr.params          = patchCorr{1}.params;
+  mcorr.params.frameSkip            = frameSkip;
   mcorr.params.emptyValue           = cellfun(@(x) x.params.emptyValue, patchCorr);
   mcorr.params.patchSize            = patchSize;
   mcorr.params.numPatches           = numPatches;

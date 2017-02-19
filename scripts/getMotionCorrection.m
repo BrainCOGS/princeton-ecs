@@ -114,7 +114,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
         error('getMotionCorrection:nonlinear', 'Inconsistent parameters used for nonlinear motion correction per file, cannot compute global shifts.');
       end
       params                    = params(1);
-      fileCorr                  = ecs.nonlinearMotionCorrect( refImage, [30 10], [5 1], 0.3, 1                ...
+      fileCorr                  = ecs.nonlinearMotionCorrect( refImage, [30 10], [5 1], 0.3, 1, [0 0]         ...
                                                             , params.patchSize, params.numPatches             ...
                                                             , params.maxShiftDifference, params.smoothness    ...
                                                             );
@@ -127,12 +127,12 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
         frameCorr(iFile).rigid.yShifts(:,end+1)   = frameCorr(iFile).rigid.yShifts(:,end) + rigidDy;
         
         %% Centers for the original shifts are relocated, we interpolate back in order to shift them by the global amount
-        [frameCorr(iFile).xShifts, frameCorr(iFile).xCenter]                  ...
-                                                  = relocatePatchShifts(frameCorr(iFile).xShifts, frameCorr(iFile).xCenter + rigidDx, frameCorr(iFile).xCenter);
-        [frameCorr(iFile).xShifts, frameCorr(iFile).xCenter]                  ...
-                                                  = relocatePatchShifts(frameCorr(iFile).xShifts, frameCorr(iFile).yCenter + rigidDy, frameCorr(iFile).xCenter);
-        frameCorr(iFile).xCenter                  = frameCorr(iFile).xCenter              + rigidDx;
-        frameCorr(iFile).yCenter                  = frameCorr(iFile).yCenter              + rigidDy;
+        patchScale                                = [ numel(frameCorr(iFile).yCenter) / ( frameCorr(iFile).yCenter(end) - frameCorr(iFile).yCenter(1) + 1 )   ...
+                                                    , numel(frameCorr(iFile).xCenter) / ( frameCorr(iFile).xCenter(end) - frameCorr(iFile).xCenter(1) + 1 )   ...
+                                                    ];
+        rigidShift                                = [rigidDy, rigidDx] .* patchScale;
+        frameCorr(iFile).xShifts                  = relocatePatchShifts(frameCorr(iFile).xShifts, rigidShift);
+        frameCorr(iFile).yShifts                  = relocatePatchShifts(frameCorr(iFile).yShifts, rigidShift);
         frameCorr(iFile).xShifts                  = bsxfun(@plus, frameCorr(iFile).xShifts, fileCorr.xShifts(:,:,iFile));
         frameCorr(iFile).yShifts                  = bsxfun(@plus, frameCorr(iFile).yShifts, fileCorr.yShifts(:,:,iFile));
       end
@@ -162,19 +162,30 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
 end
 
 %---------------------------------------------------------------------------------------------------
-function [shifts, centers] = relocatePatchShifts(origShifts, origCenters, targetCenters)
+function shifts = relocatePatchShifts(origShifts, relocation)
   
-  %% Bi-cubic interpolation between patch centers
-  numFrames                 = size(origShifts,3);
-  shifts                    = nan([gridSize + 2, numFrames], 'like', origShifts);
-  shifts(2:end-1,2:end-1,:) = imresize( origShifts, gridSize, 'bicubic' );
+  %% Sanity check to prevent too large shifts
+  if any(abs(relocation) > 1)
+    error('getMotionCorrection:relocatePatchShifts', 'Patch-level shifts for rigid global registration exceeds 1, there is probably something wrong.');
+  end
   
-  %% Assume constant extrapolations up to the borders of the movie
-  shifts(2:end-1,1,:)       = shifts(2:end-1,2,:);
-  shifts(2:end-1,end,:)     = shifts(2:end-1,end-1,:);
-  shifts(1,2:end-1,:)       = shifts(2,2:end-1,:);
-  shifts(end,2:end-1,:)     = shifts(end-1,2:end-1,:);
-  shifts(1,[1 end],:)       = shifts(2,[1 end],:);
-  shifts(end,[1 end],:)     = shifts(end-1,[1 end],:);
+  %% Pad data to account for missing borders
+  noData                    = {'pre', 'post'};
+  shifts                    = origShifts;
+  if relocation(1) ~= 0
+    shifts                  = padarray(shifts, [1 0 0], 'replicate', noData{1 + (relocation(1) < 0)});
+  end
+  if relocation(2) ~= 0
+    shifts                  = padarray(shifts, [0 1 0], 'replicate', noData{1 + (relocation(2) < 0)});   
+  end
+  
+  %% Translate the original shifts by the desired amount
+  shifts                    = imtranslate(shifts, relocation, 'linear', 'FillValues', nan);
+  if relocation(1) ~= 0
+    shifts                  = shifts((1:end-1) + (relocation(1) > 0),:,:);
+  end
+  if relocation(2) ~= 0
+    shifts                  = shifts(:,(1:end-1) + (relocation(2) > 0),:);
+  end
   
 end
