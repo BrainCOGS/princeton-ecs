@@ -40,8 +40,9 @@ public:
   }
 
   void operator() ( const mxArray* matSource, void* targetPtr, const size_t tgtOffset
-                  , const double* xShift, const double* yShift, const int methodInterp
-                  , const bool* nanMask, const CondenserInfo2D* condenser, double emptyValue = mxGetNaN()
+                  , const double* xShift, const double* yShift, bool perFrameX, bool perFrameY
+                  , const int methodInterp, const bool* nanMask, const CondenserInfo2D* condenser
+                  , double emptyValue = mxGetNaN()
                   )
   {
     Pixel*            target    = (      Pixel*)  targetPtr;
@@ -55,22 +56,30 @@ public:
     MatlabToCVMatHelper<double,Pixel>   dataCopier;
     frmOrig.create(dimension[0], dimension[1], CV_64F);
 
+    if (!perFrameX)   xTrans[2] = float( *xShift );
+    if (!perFrameY)   yTrans[2] = float( *yShift );
+
+
 
     for (size_t iFrame = 0; iFrame < numFrames; ++iFrame)
     {
       // Copy frame to high precision buffer
       dataCopier(frmOrig, source);
 
+      // Set shifts for this frame
+      if (perFrameX) {
+        xTrans[2]     = float( *xShift );
+        ++xShift;
+      }
+      if (perFrameY) {
+        yTrans[2]     = float( *yShift );
+        ++yShift;
+      }
+
       // Perform an affine transformation i.e. sub-pixel shift via interpolation
-      xTrans[2]       = float( *xShift );
-      yTrans[2]       = float( *yShift );
       cv::warpAffine( frmOrig, frmShifted, translator, frmOrig.size()
                     , methodInterp, cv::BorderTypes::BORDER_CONSTANT, emptyValue
                     );
-
-      // Move on to next shift
-      ++xShift;
-      ++yShift;
 
       // For area interpolation, can directly write to output since this is the last operation
       cvTypeCall<ImageCondenser2D, Pixel>(frmShifted, target, condenser, offset, nanMask, emptyValue);
@@ -88,6 +97,32 @@ protected:
   Pixel               offset;
 };
 
+//_________________________________________________________________________
+bool checkNumShifts(const mxArray* matShifts, double*& ptrShifts, const int numFrames, const char* name)
+{
+  const int           numRows     = mxGetM(matShifts);
+  const int           numCols     = mxGetN(matShifts);
+  const int           numShifts   = mxGetNumberOfElements(matShifts);
+  
+
+  if (numShifts == 1)
+    return false;
+
+  if (numCols > 1 && numRows > 1) {
+    if (numRows < numFrames)
+      mexErrMsgIdAndTxt( "imtranslatex:shifts", "Number of %s rows (%d) is less than the number of frames (%d) in this image stack.", name, numRows, numFrames);
+    else {
+      ptrShifts      += (numCols - 1) * numRows;
+      //if (numCols > 1)
+      //  mexWarnMsgIdAndTxt( "imreadx:shifts", "Multiple columns (%d) of %s provided. Will use last column for corrections.", numCols, name);
+    }
+  }
+
+  else if (numShifts < numFrames)
+    mexErrMsgIdAndTxt( "imtranslatex:shifts", "Number of %s (%d) is less than the number of frames (%d) in this image stack.", name, numShifts, numFrames);
+
+  return true;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -105,8 +140,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   // Parse input
   const mxArray*              input           = prhs[0];
-  const double*               xShift          = mxGetPr(prhs[1]);
-  const double*               yShift          = mxGetPr(prhs[2]);
+  double*                     xShift          = mxGetPr(prhs[1]);
+  double*                     yShift          = mxGetPr(prhs[2]);
   const double                xScale          = ( nrhs >  3 && !mxIsEmpty(prhs[3]) ) ?     mxGetScalar(prhs[3])       : 1;
   const double                yScale          = ( nrhs >  4 && !mxIsEmpty(prhs[4]) ) ?     mxGetScalar(prhs[4])       : 1;
   const mxArray*              nanMask         =   nrhs >  5 ?                                          prhs[5]        : 0;
@@ -128,8 +163,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Ensure proper size of masks
   if (nanMask && (mxGetM(nanMask) != srcHeight || mxGetN(nanMask) != srcWidth))
     mexErrMsgIdAndTxt( "imtranslatex:load", "Incorrect size of nanMask, must be equal to original image size (width = %d, height = %d).", srcWidth, srcHeight);
-  if (mxGetNumberOfElements(prhs[1]) < numFrames || mxGetNumberOfElements(prhs[2]) < numFrames)
-    mexErrMsgIdAndTxt( "imtranslatex:input", "Insufficient number of shifts provided, must be at least the number of image frames %d.", numFrames);
+
+  const bool                  multiXShift     = checkNumShifts(prhs[1], xShift, numFrames, "xShift");
+  const bool                  multiYShift     = checkNumShifts(prhs[2], yShift, numFrames, "yShift");
 
 
   // Adjust for scaling 
@@ -144,5 +180,5 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   void*                       target          = mxGetData(plhs[0]);
   const bool*                 masked          = ( nanMask ? (const bool*) mxGetData(nanMask) : 0 );
   const size_t                tgtPixels       = imgHeight * imgWidth;
-  matlabCall<TranslateImage>(input, target, tgtPixels, xShift, yShift, methodInterp, masked, condenserInfo);
+  matlabCall<TranslateImage>(input, target, tgtPixels, xShift, yShift, multiXShift, multiYShift, methodInterp, masked, condenserInfo);
 }

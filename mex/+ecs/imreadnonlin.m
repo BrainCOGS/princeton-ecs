@@ -33,6 +33,11 @@ function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel,
 %   yShifts               = imgaussfilt(mcorr.yShifts, 0.5);
   patchXShifts          = upsamplePatchShifts(xShifts, gridSize);
   patchYShifts          = upsamplePatchShifts(yShifts, gridSize);
+  
+  if any(~isfinite(patchXShifts(:))) || any(~isfinite(patchYShifts(:)))
+    error('imreadnonlin:input', 'Non-finite shifts encountered for one or more patch centers.');
+  end
+  
 
   %% The image warping is defined using the (upsampled) centers of the patches
   xCenter               = [1, round(linspace(mcorr.xCenter(1), mcorr.xCenter(end), gridSize(2))), nCols];

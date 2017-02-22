@@ -108,7 +108,14 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   %% Loop sequentially over input files and collect chunks of frames
   out             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
   sub             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
+  if verbose
+    fprintf('      Processing file        ');
+  end
   for iFile = 1:numel(imageFiles)
+    if verbose
+      fprintf('\b\b\b\b\b\b\b%3d/%-3d', iFile, numel(imageFiles));
+    end
+  
     %% Read in the image and apply motion correction shifts
     if isempty(motionCorr)
       img         = cv.imreadx(imageFiles{iFile}, [], [], varargin{:});
@@ -163,6 +170,9 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   end
   
   %% Don't forget last frame in rebinned movies
+  if verbose
+    fprintf(' ... finalizing.');
+  end
   if out.nLeft > 0
     if isempty(pixelIndex)
       movie(:,:,out.nFrames+1)      = out.leftover / out.nLeft;

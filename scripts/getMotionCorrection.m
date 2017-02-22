@@ -65,13 +65,13 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   %% Compute remaining correction factors
   iCompute                      = find(cellfun(@isempty, frameCorr));
   if ~isempty(iCompute)
-    fprintf(' ... motion correcting');
-    
     newCorr                     = cell(size(iCompute));
     corrInput                   = inputFiles(iCompute);
     corrPath                    = corrPath(iCompute);
     
     if doNonlinear
+      fprintf(' ... correcting nonlinear motion ');
+      
       %% Parallel processing for nonlinear motion correction is within the correction code
       for iFile = 1:numel(iCompute)
         startTime               = tic;
@@ -84,6 +84,8 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
       end
     
     else
+      fprintf(' ... correcting rigid motion ');
+      
       %% Can use parallel processing for rigid motion correction
       parfor iFile = 1:numel(iCompute)
         startTime               = tic;
@@ -170,22 +172,26 @@ function shifts = relocatePatchShifts(origShifts, relocation)
   end
   
   %% Pad data to account for missing borders
-  noData                    = {'pre', 'post'};
   shifts                    = origShifts;
   if relocation(1) ~= 0
-    shifts                  = padarray(shifts, [1 0 0], 'replicate', noData{1 + (relocation(1) < 0)});
+    shifts                  = padarray(shifts, [1 0 0], 'replicate', 'both');
   end
   if relocation(2) ~= 0
-    shifts                  = padarray(shifts, [0 1 0], 'replicate', noData{1 + (relocation(2) < 0)});   
+    shifts                  = padarray(shifts, [0 1 0], 'replicate', 'both');
   end
   
   %% Translate the original shifts by the desired amount
-  shifts                    = imtranslate(shifts, relocation, 'linear', 'FillValues', nan);
+  shifts                    = cv.imtranslatex(shifts, relocation(2), relocation(1));
   if relocation(1) ~= 0
-    shifts                  = shifts((1:end-1) + (relocation(1) > 0),:,:);
+    shifts                  = shifts(2:end-1,:,:);
   end
   if relocation(2) ~= 0
-    shifts                  = shifts(:,(1:end-1) + (relocation(2) > 0),:);
+    shifts                  = shifts(:,2:end-1,:);
+  end
+  
+  %% Sanity check
+  if any(~isfinite(shifts(:)))
+    error('getMotionCorrection:relocatePatchShifts', 'Non-finite values encountered in patch-level shifts.');
   end
   
 end
