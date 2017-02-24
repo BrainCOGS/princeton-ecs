@@ -48,12 +48,12 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   
   %% Read input movie
   if ischar(inputPath)
-    movie               = cv.imreadx(inputPath);
+    movie               = cv.imreadx(inputPath, [], [], 1, 1, frameSkip);
   else
     movie               = inputPath;
-  end
-  if any(frameSkip ~= 0)
-    movie               = movie(:,:,1 + frameSkip(1): 1 + frameSkip(2):end);
+    if any(frameSkip ~= 0)
+      movie             = movie(:,:,1 + frameSkip(1): 1 + frameSkip(2):end);
+    end
   end
   
 
@@ -65,7 +65,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   mcorr.rigid.params.frameSkip  = frameSkip;
   
   
-  %% 
+  %% Setup overlapping patches for rigid sub-correction
   inputSize             = size(movie);
   numFrames             = inputSize(end);
   patchSpan             = cell(size(patchSize));
@@ -79,7 +79,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   end
   [patchX, patchY]      = meshgrid(patchCenter{2}, patchCenter{1});
   
-  %%
+  %% Slice up movie into chunks
   moviePatch            = cell(numPatches);
   for iRow = 1:numPatches(1)
     for iCol = 1:numPatches(2)
@@ -91,20 +91,20 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   end
   clear movie;
   
-  %%
+  %% Iterate over rigid correction steps
   patchCorr             = cell(size(moviePatch));
   refPatch              = cell(numPatches);
   reference             = mcorr.rigid.reference;
   for iIter = 1:maxIter(2)
 
-    %%
+    %% Create reference image for each patch
     for iRow = 1:numPatches(1)
       for iCol = 1:numPatches(2)
         refPatch{iRow,iCol}   = reference( patchSpan{1}(:,iRow), patchSpan{2}(:,iCol) );
       end
     end
     
-    %%
+    %% Obtain rigid motion correction per patch
     parfor iPatch = 1:numel(patchCorr)
       patchCorr{iPatch} = cv.motionCorrect( {moviePatch{iPatch},refPatch{iPatch}}, maxShift(2), 1, false, 0, nan, medianRebin, [0 0], false);
       corrected         = cv.imtranslatex(moviePatch{iPatch}, patchCorr{iPatch}.xShifts(:,end), patchCorr{iPatch}.yShifts(:,end));
@@ -112,7 +112,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
       refPatch{iPatch}  = median(corrected, 3, 'omitnan');
     end
     
-    %%
+    %% Compose whole-field reference as the median across overlapping patches
     reference           = nan([size(mcorr.rigid.reference),size(patchCorr)], 'like', reference);
     for iRow = 1:numPatches(1)
       for iCol = 1:numPatches(2)
@@ -127,7 +127,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   end
   
   
-  %%
+  %% Check for discontinuities in patch shifts
   patchXShifts          = single(reshape( accumfun(1, @(x) x.xShifts(:,end)', patchCorr), [numPatches,numFrames] ));
   patchYShifts          = single(reshape( accumfun(1, @(x) x.yShifts(:,end)', patchCorr), [numPatches,numFrames] ));
   minXDiff              = minNeighborDifference(patchXShifts);
@@ -135,9 +135,9 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   tooDifferent          = minXDiff > maxShiftDifference | minYDiff > maxShiftDifference;
   index                 = find(tooDifferent(:));
   
-  %%
+  %% Reduce difference between neighboring patch shifts if necessary
   for iDiff = 1:numel(index)
-    %%
+    %% Compute modified metric as a weighted sum with neighboring patch metrics
     [iRow,iCol,iFrame]  = ind2sub(size(tooDifferent), index(iDiff));
     metric              = patchCorr{iRow,iCol}.metric.values(:,:,iFrame);
     if iRow > 1                                             % N
@@ -153,12 +153,13 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
       metric(:,:,end+1) = patchCorr{iRow,iCol-1}.metric.values(:,:,iFrame);
     end
     
-    %%
+    % Weighted sum
     comboMetric         = (1 - smoothness)*metric(:,:,1) + smoothness*mean(metric(:,:,2:end), 3);
     [~,iMax]            = max(comboMetric(:));
     [yMax, xMax]        = ind2sub(size(comboMetric), iMax);
     
-    %% 1D Gaussian interpolation in each direction
+    
+    %% Use 1D Gaussian interpolation in each direction to locate maximum
     if xMax > 1
       ln10              = log(comboMetric(yMax, xMax - 1));
     else
@@ -189,7 +190,6 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
       yPeak             = 0;
     end
     
-    %%
 %     patchCorr{iRow,iCol}.metric.values(:,:,iFrame)  = comboMetric;
     patchXShifts(iRow,iCol,iFrame)  = -( xMax - ceil(size(comboMetric,2)/2) + xPeak );
     patchYShifts(iRow,iCol,iFrame)  = -( yMax - ceil(size(comboMetric,1)/2) + yPeak );
@@ -210,7 +210,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   end
   
   
-  %%
+  %% Create output structure in the same format as cv.imreadx()
   mcorr.xShifts         = patchXShifts;
   mcorr.yShifts         = patchYShifts;
   mcorr.inputSize       = inputSize;
@@ -229,7 +229,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
 
 end
 
-%%
+%---------------------------------------------------------------------------------------------------
 function badShift = checkRelativeShifts(location, dim)
   
   locDiff               = diff(location, 1, dim);

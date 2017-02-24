@@ -31,6 +31,10 @@ function movie = imreadx(inputPath, xShifts, yShifts, xScale, yScale, maxNumFram
   if nargin < 6
     yScale            = 1;
   end
+  if nargin < 7
+    maxNumFrames      = [];
+  end
+  
   doTranslate         = ~isempty(xShifts) || ~isempty(yShifts);
   if doTranslate && (isempty(xShifts) ~= isempty(yShifts))
     error('imreadx:arguments', 'If xShifts is provided yShifts must be as well, and vice versa.');
