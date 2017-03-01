@@ -3,7 +3,7 @@ function [movie, varargout] = parimread(imageFiles, motionCorr, frameGrouping, c
   
   % Default to no parallization if just one file
   if numel(imageFiles) < 2
-    movie         = ecs.imreadsub(imageFiles, motionCorr, frameGrouping, cropping, varargin{:});
+    movie         = cv.imreadsub(imageFiles, motionCorr, frameGrouping, cropping, varargin{:});
     return;
   end
   
@@ -44,7 +44,7 @@ function [movie, varargout] = parimread(imageFiles, motionCorr, frameGrouping, c
     numParallel   = pool.NumWorkers;
   end
   % Compute movie size
-  info            = ecs.imfinfox(imageFiles);
+  info            = cv.imfinfox(imageFiles);
   dataType        = class(motionCorr(1).reference);
   totalFrames     = sum(ceil(info.fileFrames / frameGrouping));
   movieSize       = [frameSize, totalFrames];

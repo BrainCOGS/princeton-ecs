@@ -219,7 +219,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
   //----- Parse arguments
   if (nlhs != 5 || nrhs < 2 || nrhs > 3) {
-    mexEvalString("help ecs.getSyncInfo");
+    mexEvalString("help cv.getSyncInfo");
     mexErrMsgIdAndTxt ( "getSyncInfo:usage", "Incorrect number of inputs/outputs provided." );
   }
 

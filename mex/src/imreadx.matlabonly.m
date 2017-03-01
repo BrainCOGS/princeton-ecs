@@ -63,7 +63,7 @@ function movie = imreadx(inputPath, xShifts, yShifts, xScale, yScale, maxNumFram
   
   
   %% Data format
-  info                = ecs.imfinfox(inputPath);
+  info                = cv.imfinfox(inputPath);
   if info.bitsPerSample <= 32
     dataType          = 'single';
   else

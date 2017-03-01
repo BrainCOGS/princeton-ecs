@@ -2,7 +2,7 @@
   Computes a median filtered image using a selection mask to select pixels to include. 
 
   Usage syntax:
-    filtered  = ecs.absMinFilter(image, weight, [refValue = 0], [masked = []], [isSelected = []], [minWeight = 0], [emptyValue = nan]);
+    filtered  = cv.absMinFilter(image, weight, [refValue = 0], [masked = []], [isSelected = []], [minWeight = 0], [emptyValue = nan]);
 
   NaN-valued pixels are ignored.
 
@@ -77,7 +77,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
   if (nlhs != 1 || nrhs < 2 || nrhs > 7) {
-    mexEvalString("help ecs.absMinFilter");
+    mexEvalString("help cv.absMinFilter");
     mexErrMsgIdAndTxt ( "absMinFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
 

@@ -2,7 +2,7 @@
   Computes filtered image using a selection mask to select pixels to include. NaN-valued pixels are ignored.
 
   Usage syntax:
-    filtered  = ecs.adaptiveSumFilter(image, weight, isSelected);
+    filtered  = cv.adaptiveSumFilter(image, weight, isSelected);
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -62,7 +62,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
   if (nlhs != 1 || nrhs < 2 || nrhs > 3) {
-    mexEvalString("help ecs.adaptiveSumFilter");
+    mexEvalString("help cv.adaptiveSumFilter");
     mexErrMsgIdAndTxt ( "adaptiveSumFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
 

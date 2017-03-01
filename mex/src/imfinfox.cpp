@@ -77,7 +77,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
   if (nrhs < 1 || nrhs > 3) {
-    mexEvalString("help ecs.imfinfox");
+    mexEvalString("help cv.imfinfox");
     mexErrMsgIdAndTxt ( "imfinfox:usage", "Incorrect number of inputs/outputs provided." );
   }
 

@@ -75,7 +75,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
       %% Parallel processing for nonlinear motion correction is within the correction code
       for iFile = 1:numel(iCompute)
         startTime               = tic;
-        mcorr                   = ecs.nonlinearMotionCorrect(corrInput{iFile}, varargin{:});
+        mcorr                   = cv.nonlinearMotionCorrect(corrInput{iFile}, varargin{:});
         fprintf(' (%.3g min)', toc(startTime)/60);
 
         output                  = corrPath{iFile};
@@ -116,7 +116,7 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
         error('getMotionCorrection:nonlinear', 'Inconsistent parameters used for nonlinear motion correction per file, cannot compute global shifts.');
       end
       params                    = params(1);
-      fileCorr                  = ecs.nonlinearMotionCorrect( refImage, [30 10], [5 1], 0.3, 1, [0 0]         ...
+      fileCorr                  = cv.nonlinearMotionCorrect ( refImage, [30 10], [5 1], 0.3, 1, [0 0]         ...
                                                             , params.patchSize, params.numPatches             ...
                                                             , params.maxShiftDifference, params.smoothness    ...
                                                             );

@@ -2,7 +2,7 @@
   Computes a median filtered image using a mask to select pixels to include. NaN-valued pixels are ignored.
 
   Usage syntax:
-    filtered  = ecs.medianFilter(image, mask, isSelected);
+    filtered  = cv.medianFilter(image, mask, isSelected);
 
   Author:   Sue Ann Koay (koay@princeton.edu)
 */
@@ -56,7 +56,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
   if (nlhs != 1 || nrhs < 2 || nrhs > 3) {
-    mexEvalString("help ecs.medianFilter");
+    mexEvalString("help cv.medianFilter");
     mexErrMsgIdAndTxt ( "medianFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
 

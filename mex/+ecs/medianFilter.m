@@ -5,3 +5,6 @@
 %
 %  Author:   Sue Ann Koay (koay@princeton.edu)
 %
+function medianFilter(varargin)
+  error(sprintf('%s:migrated', mfilename()), 'Oops sorry, this function has been moved to cv.%s', mfilename());
+end

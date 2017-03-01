@@ -2,7 +2,7 @@
   Computes a median filtered image using a selection mask to select pixels to include. 
 
   Usage syntax:
-    filtered  = ecs.weightedSumFilter(image, weight, [masked = []], [isSelected = []], [minWeight = 0], [emptyValue = nan]);
+    filtered  = cv.weightedSumFilter(image, weight, [masked = []], [isSelected = []], [minWeight = 0], [emptyValue = nan]);
 
   NaN-valued pixels are ignored.
 
@@ -73,7 +73,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {  
   // Check inputs to mex function
   if (nlhs != 1 || nrhs < 2 || nrhs > 6) {
-    mexEvalString("help ecs.weightedSumFilter");
+    mexEvalString("help cv.weightedSumFilter");
     mexErrMsgIdAndTxt ( "weightedSumFilter:usage", "Incorrect number of inputs/outputs provided." );
   }
 

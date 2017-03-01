@@ -2,7 +2,7 @@
   Very fast warping with locally linear assumptions.
 
   Usage syntax:
-    interpolated = ecs.barycentricMeshWarp(source, xSample, ySample, xTarget, yTarget);
+    interpolated = cv.barycentricMeshWarp(source, xSample, ySample, xTarget, yTarget);
 
   *Sample should be locations in pixel units of the original measurements.
   *Target are the locations in pixel units to which the original image should be warped,
@@ -375,7 +375,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
   //----- Parse arguments
   if (nrhs < 5) {
-    mexEvalString("help ecs.barycentricMeshWarp");
+    mexEvalString("help cv.barycentricMeshWarp");
     mexErrMsgIdAndTxt( "barycentricMeshWarp:usage", "Incorrect number of inputs/outputs provided." );
   }
 

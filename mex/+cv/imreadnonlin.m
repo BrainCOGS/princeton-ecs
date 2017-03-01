@@ -76,12 +76,12 @@ function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel,
     patchXLoc           = mat2cell(patchXLoc, numel(yCenter), numel(xCenter), chunkSize);
     patchYLoc           = mat2cell(patchYLoc, numel(yCenter), numel(xCenter), chunkSize);
     parfor iChunk = 1:numel(movie)
-      movie{iChunk}     = ecs.barycentricMeshWarp(movie{iChunk}, xCenter, yCenter, patchXLoc{iChunk}, patchYLoc{iChunk});
+      movie{iChunk}     = cv.barycentricMeshWarp(movie{iChunk}, xCenter, yCenter, patchXLoc{iChunk}, patchYLoc{iChunk});
     end
     movie               = cat(3, movie{:});
     
   else
-    movie               = ecs.barycentricMeshWarp(rigid, xCenter, yCenter, patchXLoc, patchYLoc);
+    movie               = cv.barycentricMeshWarp(rigid, xCenter, yCenter, patchXLoc, patchYLoc);
   end
   
 end

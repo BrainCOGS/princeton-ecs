@@ -36,7 +36,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   
   
   %% Option to crop border containing motion correction artifacts (some frames with no data)
-  info            = ecs.imfinfox(imageFiles);
+  info            = cv.imfinfox(imageFiles);
   if ~isempty(cropping)
     frameSize     = cropping.selectSize;
   elseif isempty(motionCorr)
@@ -120,7 +120,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     if isempty(motionCorr)
       img         = cv.imreadx(imageFiles{iFile}, [], [], varargin{:});
     elseif isfield(motionCorr(iFile), 'rigid')
-      img         = ecs.imreadnonlin(imageFiles{iFile}, motionCorr(iFile), frameSkip, doParallel);
+      img         = cv.imreadnonlin(imageFiles{iFile}, motionCorr(iFile), frameSkip, doParallel);
       info.nonlinearMotionCorr  = true;
     else
       img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
