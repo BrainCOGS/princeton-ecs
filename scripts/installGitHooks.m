@@ -1,10 +1,10 @@
-function installGitHooks(gitDir)
+function installGitHooks(codeDir)
 
   %%
-  [status,info] = system(sprintf('git -C "%s" rev-parse --git-dir', gitDir));
+  [status,info] = system(sprintf('git -C "%s" rev-parse --git-dir', codeDir));
   gitDir        = java.io.File(info);
   if ~gitDir.isAbsolute()
-    gitDir      = java.io.File(fullfile(PRINCETONECS, info));
+    gitDir      = java.io.File(fullfile(codeDir, info));
   end
   gitDir        = strtrim(char(gitDir.getAbsolutePath()));
   hooksDir      = fullfile(gitDir, 'hooks');
