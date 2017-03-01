@@ -56,6 +56,10 @@ function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel,
     end
     rigid               = cv.imtranslatex(rigid, mcorr.rigid.xShifts(:,end), mcorr.rigid.yShifts(:,end));
   end
+  
+  patchXLoc             = cast(patchXLoc, 'like', rigid);
+  patchYLoc             = cast(patchYLoc, 'like', rigid);
+  
 
   %% The rest of this is performed using MEX code for speed
   if doParallel
