@@ -1,7 +1,10 @@
 function installGitHooks(codeDir)
+  
+  %%
+  origPath      = cd(codeDir);
 
   %%
-  [status,info] = system(sprintf('git -C "%s" rev-parse --git-dir', codeDir));
+  [status,info] = system('git rev-parse --git-dir');
   gitDir        = java.io.File(info);
   if ~gitDir.isAbsolute()
     gitDir      = java.io.File(fullfile(codeDir, info));
@@ -25,6 +28,9 @@ function installGitHooks(codeDir)
   if ~exist(versioning, 'file')
     system(sprintf('git -C "%s" log -1 --pretty=oneline HEAD > %s', gitDir, versioning));
   end
+  
+  %%
+  cd(origPath);
   
 end
 
