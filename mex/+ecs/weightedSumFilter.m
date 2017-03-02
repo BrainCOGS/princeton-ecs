@@ -7,6 +7,6 @@
 %
 %  Author:   Sue Ann Koay (koay@princeton.edu)
 %
-function weightedSumFilter(varargin)
+function varargout = weightedSumFilter(varargin)
   error(sprintf('%s:migrated', mfilename()), 'Oops sorry, this function has been moved to cv.%s', mfilename());
 end

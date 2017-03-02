@@ -7,6 +7,6 @@
 %  *Target are the locations in pixel units to which the original image should be warped,
 %  specified as a function of time.
 %
-function barycentricMeshWarp(varargin)
+function varargout = barycentricMeshWarp(varargin)
   error(sprintf('%s:migrated', mfilename()), 'Oops sorry, this function has been moved to cv.%s', mfilename());
 end
