@@ -67,6 +67,9 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     frameSkip     = motionCorr(1).params.frameSkip;
     dataType      = class(motionCorr(1).reference);
   end
+  if isempty(frameSkip)
+    frameSkip     = [0 0];
+  end
   varargin{3}     = frameSkip;
   
   %% Adjust number of frames for skips and binning

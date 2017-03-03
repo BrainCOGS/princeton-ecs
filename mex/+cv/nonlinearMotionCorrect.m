@@ -17,7 +17,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   if nargin < 5
     medianRebin         = 10;
   end
-  if nargin < 6
+  if nargin < 6 || isempty(frameSkip)
     frameSkip           = [0 0];
   end
   if nargin < 7
@@ -126,73 +126,102 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
     
   end
   
-  
-  %% Check for discontinuities in patch shifts
+  %% Compute "goodness-of-fit" for correlational metric 
   patchXShifts          = single(reshape( accumfun(1, @(x) x.xShifts(:,end)', patchCorr), [numPatches,numFrames] ));
   patchYShifts          = single(reshape( accumfun(1, @(x) x.yShifts(:,end)', patchCorr), [numPatches,numFrames] ));
-  minXDiff              = minNeighborDifference(patchXShifts);
-  minYDiff              = minNeighborDifference(patchYShifts);
-  tooDifferent          = minXDiff > maxShiftDifference | minYDiff > maxShiftDifference;
-  index                 = find(tooDifferent(:));
+  shiftGOF              = repmat({nan(1,numFrames)}, prod(numPatches), 1);
+  if any(strcmp(mcorr.rigid.metric.name, {'sqDiffNormed','squaredDifference'}))
+    localOptimum        = @imregionalmin;
+    optimum             = @min;
+  else
+    localOptimum        = @imregionalmax;
+    optimum             = @max;
+  end
   
+  parfor iPatch = 1:numel(patchCorr)
+    patchMetric         = patchCorr{iPatch}.metric.values;
+    for iFrame = 1:numFrames
+      metric            = patchMetric(:,:,iFrame);
+      metric            = metric(localOptimum(metric));
+      [best,iBest]      = optimum(metric);
+      competitors       = 1 - metric([1:iBest-1,iBest+1:end])/best;
+      shiftGOF{iPatch}(iFrame)    ...
+                        = 1./sum(1./competitors);
+    end
+  end
+  shiftGOF              = reshape(cat(1, shiftGOF{:}), size(patchXShifts));
+  shiftGOF(~isfinite(shiftGOF)) = 1;
+  
+  %%
+  contribWeight         = zeros(size(shiftGOF));
+  contribWeight(2:end,:,:)    = contribWeight(2:end,:,:)   + shiftGOF(1:end-1,:,:);      % N
+  contribWeight(1:end-1,:,:)  = contribWeight(1:end-1,:,:) + shiftGOF(2:end,:,:);        % S
+  contribWeight(:,2:end,:)    = contribWeight(:,2:end,:)   + shiftGOF(:,1:end-1,:);      % E
+  contribWeight(:,1:end-1,:)  = contribWeight(:,1:end-1,:) + shiftGOF(:,2:end,:);        % W
+  
+  shiftGOF              = num2cell(shiftGOF,3);
+  selfMetric            = cellfun(@(x,y) (1-smoothness) * bsxfun(@times, x.metric.values, 1+y), patchCorr, shiftGOF, 'UniformOutput', false);
+  otherMetric           = cellfun(@(x,y)    smoothness  * bsxfun(@times, x.metric.values,   y), patchCorr, shiftGOF, 'UniformOutput', false);
+  
+
   %% Reduce difference between neighboring patch shifts if necessary
-  for iDiff = 1:numel(index)
-    %% Compute modified metric as a weighted sum with neighboring patch metrics
-    [iRow,iCol,iFrame]  = ind2sub(size(tooDifferent), index(iDiff));
-    metric              = patchCorr{iRow,iCol}.metric.values(:,:,iFrame);
-    if iRow > 1                                             % N
-      metric(:,:,end+1) = patchCorr{iRow-1,iCol}.metric.values(:,:,iFrame);
+  for iRow = 1:numPatches(1)
+    for iCol = 1:numPatches(2)
+      %% Compute modified metric as a weighted sum with neighboring patch metrics
+      metric            = zeros(size(selfMetric{iRow,iCol}));
+      if iRow > 1                                             % N
+        metric          = metric + otherMetric{iRow-1,iCol};
+      end
+      if iRow < size(patchCorr,1)                             % S
+        metric          = metric + otherMetric{iRow+1,iCol};
+      end
+      if iCol < size(patchCorr,2)                             % E
+        metric          = metric + otherMetric{iRow,iCol+1};
+      end
+      if iCol > 1                                             % W
+        metric          = metric + otherMetric{iRow,iCol-1};
+      end
+      metric            = selfMetric{iRow,iCol} + bsxfun(@rdivide, metric, contribWeight(iRow,iCol,:));
+      
+
+      %% Weighted sum
+      metricSize        = size(metric);
+      metric            = reshape(metric,[],numFrames);
+      [~,iOptim]        = optimum(metric, [], 1);
+      [yOptim, xOptim]  = ind2sub(butlast(metricSize), iOptim);
+      lnMetric          = log(metric);
+
+
+      %% Use 1D Gaussian interpolation in each direction to locate maximum
+      ln10                = nan(size(iOptim));
+      sel                 = find( xOptim > 1 );
+      ln10(sel)           = lnMetric(sub2ind(metricSize, yOptim(sel), xOptim(sel) - 1, sel));
+      
+      ln11                = lnMetric(sub2ind(metricSize, yOptim, xOptim, 1:numFrames));
+      
+      ln12                = nan(size(iOptim));
+      sel                 = find( xOptim < metricSize(2) );
+      ln12(sel)           = lnMetric(sub2ind(metricSize, yOptim(sel), xOptim(sel) + 1, sel));
+      
+%       ln01                = nan(size(iOptim));
+      sel                 = find( yOptim > 1 );
+      ln01(sel)           = lnMetric(sub2ind(metricSize, yOptim(sel) - 1, xOptim(sel), sel));
+
+      ln21                = nan(size(iOptim));
+      sel                 = find( yOptim < metricSize(1) );
+      ln21(sel)           = lnMetric(sub2ind(metricSize, yOptim(sel) + 1, xOptim(sel), sel));
+
+      %%
+      xPeak               = ( ln10 - ln12 ) ./ ( 2 * ln10 - 4 * ln11 + 2 * ln12 );
+      yPeak               = ( ln01 - ln21 ) ./ ( 2 * ln01 - 4 * ln11 + 2 * ln21 );
+
+      
+      %%
+      xPeak(isnan(xPeak)) = 0;
+      yPeak(isnan(yPeak)) = 0;
+      patchXShifts(iRow,iCol,:) = -( xOptim - ceil(metricSize(2)/2) + xPeak );
+      patchYShifts(iRow,iCol,:) = -( yOptim - ceil(metricSize(1)/2) + yPeak );
     end
-    if iRow < size(patchCorr,1)                             % S
-      metric(:,:,end+1) = patchCorr{iRow+1,iCol}.metric.values(:,:,iFrame);
-    end
-    if iCol < size(patchCorr,2)                             % E
-      metric(:,:,end+1) = patchCorr{iRow,iCol+1}.metric.values(:,:,iFrame);
-    end
-    if iCol > 1                                             % W
-      metric(:,:,end+1) = patchCorr{iRow,iCol-1}.metric.values(:,:,iFrame);
-    end
-    
-    % Weighted sum
-    comboMetric         = (1 - smoothness)*metric(:,:,1) + smoothness*mean(metric(:,:,2:end), 3);
-    [~,iMax]            = max(comboMetric(:));
-    [yMax, xMax]        = ind2sub(size(comboMetric), iMax);
-    
-    
-    %% Use 1D Gaussian interpolation in each direction to locate maximum
-    if xMax > 1
-      ln10              = log(comboMetric(yMax, xMax - 1));
-    else
-      ln10              = nan;
-    end
-    ln11                = log(comboMetric(yMax, xMax));
-    if xMax < size(comboMetric,2)
-      ln12              = log(comboMetric(yMax, xMax + 1));
-    else
-      ln12              = nan;
-    end
-    if yMax > 1
-      ln01              = log(comboMetric(yMax - 1, xMax));
-    else
-      ln01              = nan;
-    end
-    if yMax < size(comboMetric,1)
-      ln21              = log(comboMetric(yMax + 1, xMax));
-    else
-      ln21              = nan;
-    end
-    xPeak               = ( ln10 - ln12 ) / ( 2 * ln10 - 4 * ln11 + 2 * ln12 );
-    yPeak               = ( ln01 - ln21 ) / ( 2 * ln01 - 4 * ln11 + 2 * ln21 );
-    if isnan(xPeak)
-      xPeak             = 0;
-    end
-    if isnan(yPeak)
-      yPeak             = 0;
-    end
-    
-%     patchCorr{iRow,iCol}.metric.values(:,:,iFrame)  = comboMetric;
-    patchXShifts(iRow,iCol,iFrame)  = -( xMax - ceil(size(comboMetric,2)/2) + xPeak );
-    patchYShifts(iRow,iCol,iFrame)  = -( yMax - ceil(size(comboMetric,1)/2) + yPeak );
   end
 
   
