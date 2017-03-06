@@ -22,16 +22,18 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   end
   if nargin < 7
 %     patchSize           = [255 255];
-    patchSize           = [171 171];
-%     patchSize           = [151 151];
+%     patchSize           = [171 171];
+%     patchSize           = [151 171];
+    patchSize           = [151 151];
 %     patchSize           = [127 127];
 %     patchSize           = [101 101];
   elseif numel(patchSize) < 2
     patchSize           = [patchSize patchSize];
   end
   if nargin < 8
-    numPatches          = [5 5];
-%     numPatches          = [6 6];
+%     numPatches          = [5 5];
+%     numPatches          = [6 5];
+    numPatches          = [6 6];
 %     numPatches          = [7 7];
 %     numPatches          = [8 8];
 %     numPatches          = [10 10];
@@ -55,6 +57,10 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
       movie             = movie(:,:,1 + frameSkip(1): 1 + frameSkip(2):end);
     end
   end
+  
+  %% Apply a log transform so as to be less sensitive to large differences in dynamic range (e.g. activity)
+  offset                = min(movie(:)) - 1;
+  movie                 = log(movie - offset);
   
 
   %% Rigid motion correction
@@ -141,18 +147,25 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   parfor iPatch = 1:numel(patchCorr)
     patchMetric         = patchCorr{iPatch}.metric.values;
     for iFrame = 1:numFrames
+      %%
       metric            = patchMetric(:,:,iFrame);
       metric            = metric(localOptimum(metric));
       [best,iBest]      = optimum(metric);
+%       competitors       = optimum( metric([1:iBest-1,iBest+1:end]) );
+%       if ~isempty(competitors)
+%         competitors     = 1 - competitors/best;
+%       competitors       = 1 - metric([1:iBest-1,iBest+1:end])/best;
       competitors       = 1 - metric([1:iBest-1,iBest+1:end])/best;
       shiftGOF{iPatch}(iFrame)    ...
-                        = 1./sum(1./competitors);
+                        = sum(competitors.^(-10)).^(-1/10);
+%                         = 1./sum(1./competitors);
+%       end
     end
   end
   shiftGOF              = reshape(cat(1, shiftGOF{:}), size(patchXShifts));
   shiftGOF(~isfinite(shiftGOF)) = 1;
   
-  %%
+  %% Weighted contributions
   contribWeight         = zeros(size(shiftGOF));
   contribWeight(2:end,:,:)    = contribWeight(2:end,:,:)   + shiftGOF(1:end-1,:,:);      % N
   contribWeight(1:end-1,:,:)  = contribWeight(1:end-1,:,:) + shiftGOF(2:end,:,:);        % S
@@ -184,7 +197,10 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
       metric            = selfMetric{iRow,iCol} + bsxfun(@rdivide, metric, contribWeight(iRow,iCol,:));
       
 
-      %% Weighted sum
+      %% Locate global optimum, but prohibiting solutions at the borders
+      metric([1 end],:,:) = nan;
+      metric(:,[1 end],:) = nan;
+
       metricSize        = size(metric);
       metric            = reshape(metric,[],numFrames);
       [~,iOptim]        = optimum(metric, [], 1);
@@ -235,11 +251,13 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   
   nBadPatches           = sum(badShift(:));
   if nBadPatches > 0
+    keyboard
     error('nonlinearMotionCorrect:relativeShifts', '%d/%d patches (%dx%d pixels) had shifts that would invert their x/y positional order.', nBadPatches, numel(patchCorr), patchSize(1), patchSize(2));
   end
   
   
   %% Create output structure in the same format as cv.imreadx()
+  mcorr.rigid.reference = exp(mcorr.rigid.reference) + offset;
   mcorr.xShifts         = patchXShifts;
   mcorr.yShifts         = patchYShifts;
   mcorr.inputSize       = inputSize;
@@ -252,7 +270,7 @@ function mcorr = nonlinearMotionCorrect(inputPath, maxShift, maxIter, stopBelowS
   mcorr.params.maxShiftDifference   = maxShiftDifference;
   mcorr.params.smoothness           = smoothness;
   mcorr.metric          = [];           % HACK: not stored
-  mcorr.reference       = reference;
+  mcorr.reference       = exp(reference) + offset;
   mcorr.xCenter         = patchCenter{2};
   mcorr.yCenter         = patchCenter{1};
 
