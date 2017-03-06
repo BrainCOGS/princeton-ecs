@@ -179,7 +179,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   double*                     usrBlackValue   = ( nrhs >  5 && mxGetNumberOfElements(prhs[5]) > 1 ? mxGetPr(prhs[5]) : 0 );
   int                         medianRebin     = ( nrhs >  6 ? int( mxGetScalar(prhs[6]) )  : 1      );
   const mxArray*              frameSkip       = ( nrhs >  7 ? prhs[7]                      : 0      );
-  const bool                  centerShifts    = ( nrhs >  8 ? mxGetScalar(prhs[8]) > 0     : !(emptyProb > 0) );
+  bool                        centerShifts    = ( nrhs >  8 ? mxGetScalar(prhs[8]) > 0     : !(emptyProb > 0) );
   const bool                  preferSmallest  = ( nrhs >  9 ? mxGetScalar(prhs[9]) > 0     : false  );
   const int                   methodInterp    = ( nrhs > 10 ? int( mxGetScalar(prhs[10]))  : cv::InterpolationFlags::INTER_LINEAR     );
   const int                   methodCorr      = ( nrhs > 11 ? int( mxGetScalar(prhs[11]))  : cv::TemplateMatchModes::TM_CCOEFF_NORMED );
@@ -203,6 +203,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     cvMatlabCall<MatlabToCVMat>(refStack, mxGetClassID(matTemplate), matTemplate);
 
     input                     = mxGetCell(input, 0);
+    centerShifts              = false;        // Don't center if template is explicitly provided
   }
 
   // Frame skipping if so desired
