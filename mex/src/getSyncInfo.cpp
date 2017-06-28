@@ -225,7 +225,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   const mxArray*        matInput      = prhs[0];
   const mxArray*        matType       = prhs[1];
-  const mxArray*        frameSkip     = ( nrhs > 2 ? prhs[2] : 0 );
+  const mxArray*        frameSkip     = ( nrhs > 2 && !mxIsEmpty(prhs[2]) ? prhs[2] : 0 );
   if (!mxIsChar(matInput))
     mexErrMsgIdAndTxt("getSyncInfo:arguments", "inputFile must be a character array.");
   if (!mxIsChar(matType))
