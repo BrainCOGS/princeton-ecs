@@ -7,10 +7,7 @@ function parallelSave(filename, varargin)
     filename          = filename{1};
     
     if exist(filename, 'file')
-      if exist(backupFile, 'file')
-        delete(backupFile);
-      end
-      [status,msg]    = movefile(filename, backupFile);
+      [status,msg]    = copyfile(filename, backupFile);
       if ~status
         error('parallelSave:backupFile', msg);
       end
