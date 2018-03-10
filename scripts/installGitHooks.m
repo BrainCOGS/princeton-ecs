@@ -13,6 +13,10 @@ function installGitHooks(codeDir)
   hooksDir      = fullfile(gitDir, 'hooks');
   sourceDir     = fullfile(gitDir, '..', 'git-hooks');
   
+  if ~exist(hooksDir, 'dir')
+    mkdir(hooksDir);
+  end
+  
   %%
   hooks         = rdir(sourceDir);
   for iHook = 1:numel(hooks)
