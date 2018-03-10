@@ -288,7 +288,7 @@ end
 %---------------------------------------------------------------------------------------------------
 function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateMFile, lazy, verbose)
 
-  % Default arguments
+  %% Default arguments
   if nargin < 6
     generateMFile   = false;
   end
@@ -299,7 +299,7 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
     verbose         = true;
   end
   
-  % Get list of files to compile
+  %% Get list of files to compile
   outFile           = cell(1, numel(srcFile));
   if isempty(srcFile)
     return;
@@ -309,7 +309,7 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
   fprintf('\n     ********************  %s\n', srcDir);
   hWait             = waitbar(0, strrep(srcDir, '\', '\\'));
   
-  % Create output directory if necessary
+  %% Create output directory if necessary
   if ~exist(outDir, 'dir')
     mkdir(outDir);
   end
@@ -317,10 +317,12 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
   for iFile = 1:numel(srcFile)
     [~, target, ~]  = fileparts(srcFile(iFile).name);
     target          = fullfile(outDir, [target '.' outExt]);
+    [~,targetM,~]   = fileparts(target);
+    targetMFile     = fullfile(outDir, [targetM '.m']);
     outFile{iFile}  = target;
     waitbar(iFile / numel(srcFile), hWait);
     
-    % Skip if already compiled
+    %% Skip if already compiled
     if lazy && exist(target, 'file')
       targetInfo    = dir(target);
       if targetInfo.datenum >= srcFile(iFile).datenum
@@ -329,27 +331,41 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
       end
     end
     
-    % Display the compilation command
+    %% Display the compilation command
     if verbose
       fprintf('mex -outdir %s', outDir);
       fprintf(' %s', options{:});
       fprintf(' %s\n', srcFile(iFile).name);
     end
 
-    % Run compilation
+    %% Alternative source for special cases to replace with Matlab scripts when the C++ code cannot be compiled
+    [srcDir,srcName]= fileparts(srcFile(iFile).name);
+    mSource         = fullfile(srcDir, [srcName '.matlabonly.m']);
+    if ~exist(mSource, 'file')
+      mSource       = '';
+    end
+        
+    %% Run compilation
     try
       mex('-outdir', outDir, options{:}, srcFile(iFile).name);
       success       = true;
     catch err
       success       = false;
-      displayException(err);
+      if isempty(mSource)
+        displayException(err);
+        if exist(targetMFile, 'file')
+          delete(targetMFile);
+        end
+      else
+        copyfile(mSource, targetMFile, 'f');
+      end
 %       close(hWait);
 %       fprintf('\n\nSTOPPED due to compilation error.\n\n');
 %       rethrow(err);
     end
     
-    % Generate an m-file if so requested
-    if generateMFile
+    %% Generate an m-file for documentation, if so requested
+    if success && generateMFile
       source        = fileread(srcFile(iFile).name);
       srcDoc        = regexp(source, '^\s*/\*\*\s*(.*?)\n\s*\n(.*?)\*/', 'tokens');
       if isempty(srcDoc)
@@ -362,31 +378,16 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
         continue;
       end
 
-      [~,target,~]  = fileparts(target);
-      targetFile    = fullfile(outDir, [target '.m']);
-      if success
-        targetID    = fopen(targetFile, 'w');
-        fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
-                , upper(target), srcDoc{1}{1}                             ...
-                , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
-                );
-        fclose(targetID);
-      else
-        if exist(targetFile, 'file')
-          delete(targetFile);
-        end
-        
-        [srcDir, srcName] = fileparts(srcFile(iFile).name);
-        source      = fullfile(srcDir, [srcName '.matlabonly.m']);
-%         fprintf('\n\n\n\n%s : %s -> %s -> %s\n\n\n', pwd, srcFile(iFile).name, source, targetFile);
-        if exist(source, 'file')
-          copyfile(source, targetFile, 'f');
-        end
-      end
+      targetID      = fopen(targetMFile, 'w');
+      fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
+              , upper(target), srcDoc{1}{1}                             ...
+              , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
+              );
+      fclose(targetID);
     end
   end
   
-  % Cleanup and exit
+  %% Cleanup and exit
   close(hWait);
 
 end
