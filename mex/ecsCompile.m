@@ -358,6 +358,7 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
         end
       else
         copyfile(mSource, targetMFile, 'f');
+        fprintf('\nCompilation did not succeed. Replacing with MATLAB script: %s\n\n', targetMFile);
       end
 %       close(hWait);
 %       fprintf('\n\nSTOPPED due to compilation error.\n\n');
