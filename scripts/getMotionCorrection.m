@@ -26,13 +26,13 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     end
   end
   
-  globalComputation             = nargout > 1;
+  globalComputation             = nargout > 1 || isequal(globalRegistration,true);
   if ischar(globalRegistration)
     if strcmpi(globalRegistration, 'off')
       globalRegistration        = false;
       globalComputation         = false;
     else
-      error('getMotionCorrection:arguments', 'recompute must be either true, false, or the string ''off'' to prohibit computation of global shifts.');
+      error('getMotionCorrection:arguments', 'globalRegistration must be either true, false, or the string ''off'' to prohibit computation of global shifts.');
     end
   end
   
