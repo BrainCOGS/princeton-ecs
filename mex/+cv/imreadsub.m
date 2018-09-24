@@ -97,7 +97,9 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     frameGrouping = frameGrouping{1};
   else
     pixelIndex    = [];
+    avgIndex      = [];
   end
+  storePixels     = ~isempty(pixelIndex) || ~isempty(avgIndex);
   
   
   %% Compute movie size
@@ -117,10 +119,10 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   info.fileFrames = arrayfun(@(x) ceil((x - frameSkip(1)) / (1 + frameSkip(2))), info.fileFrames);
   totalFrames     = ceil(sum(info.fileFrames) / frameGrouping);
   inputSize       = [frameSize, totalFrames];
-  if isempty(pixelIndex)
-    movieSize     = inputSize;
-  else
+  if storePixels
     movieSize     = [numel(pixelIndex) + 1, totalFrames];
+  else
+    movieSize     = inputSize;
   end
   
   
@@ -136,7 +138,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   
   
   %% Preallocate output
-  if numel(imageFiles) > 1 || ~isempty(pixelIndex)
+  if numel(imageFiles) > 1 || storePixels
     movie         = zeros(movieSize, dataType);
   end
   if isempty(addGrouping)
@@ -197,7 +199,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     end
 
     %% Store in the target chunk, optionally as a list of pixels
-    if ~isempty(pixelIndex)
+    if storePixels
       % Store only subset of pixels
       img         = reshape(img, [], size(img,3));
       movie(1:end-1,range)        = img(pixelIndex,:);
@@ -222,9 +224,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     fprintf(' ... finalizing.');
   end
   if out.nLeft > 0
-    if isempty(pixelIndex)
-      movie(:,:,out.nFrames+1)      = out.leftover / out.nLeft;
-    else
+    if storePixels
       img         = reshape(out.leftover, [], 1);
       movie(1:end-1,out.nFrames+1)  = img(pixelIndex,:);
       if averageAll
@@ -232,6 +232,8 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
       else
         movie(end  ,out.nFrames+1)  = mean(img(avgIndex,:), 1);
       end
+    else
+      movie(:,:,out.nFrames+1)      = out.leftover / out.nLeft;
     end
   end
   if sub.nLeft > 0
