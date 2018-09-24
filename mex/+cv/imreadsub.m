@@ -1,4 +1,44 @@
-%% IMREADSUB      Loads multiple image stacks into memory, applying motion correction and downsampling
+% IMREADSUB      Loads multiple image stacks into memory, applying motion correction and downsampling
+%
+%  Inputs
+% ========
+%   imageFiles       : Cell array of .tif files to read.
+%   motionCorr       : Struct array that is 1-1 with the list of imageFiles, as produced by
+%                      cv.motionCorrect or cv.nonlinearMotionCorrect. The format of this will
+%                      determine whether linear or nonlinear motion correction is applied to the
+%                      loaded data.
+%   frameGrouping    : Either an integer specifying the number of frames to group together via
+%                      averaging to produce the output movie, or a cell array 
+%                         {frameGrouping, pixelIndex, avgIndex, [addGrouping]}
+%                      with the interpretation that frameGrouping is used to group frames together
+%                      for the output, pixelIndex restricts the output movie to the given pixel
+%                      indices, avgIndex adds a pixel to the end of the output movie that is the
+%                      average over the listed pixels, and (optional) addGrouping generates a second
+%                      output binnedMovie with a total temporal grouping factor of 
+%                      frameGrouping * addGrouping. N.B. Pixel indices are relative to the cropped
+%                      movie (see cropping input argument), and a single non-positive number (as
+%                      opposed to a list of pixels) for avgIndex will average across all pixels in
+%                      the cropped input movie. 
+%   cropping         : Struct for info on how to crop the borders of the movie e.g. as produced by
+%                      getMovieCropping() in order to remove areas where one or more frames have no
+%                      info due to applied translations for motion correction. If empty, no cropping
+%                      is applied.
+%   varargin         : Additional arguments for cv.imreadx(), after the motion correction yShifts.
+%
+%  Outputs
+% =========
+%   movie            : A temporally downsampled and optionally spatially cropped movie from the
+%                      concatenation of imageFiles. To produce this, frames are grouped
+%                      (frameGrouping input number into a single output frame) and averaged within
+%                      groups, i.e. downsampled by a factor of frameGrouping.
+%   binnedMovie      : Optional and produced only in case of cell array frameGrouping input with
+%                      addGrouping specified, in which case this is like movie but further
+%                      downsampled by the addGrouping factor.
+%   inputSize        : Original size of all input files.
+%   info             : Struct with parameters used in computing the movie output.
+%
+% Author  :  Sue Ann Koay (koay@princeton.edu)
+%
 function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCorr, frameGrouping, cropping, varargin)
 
   %% Default arguments
@@ -49,7 +89,8 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   addGrouping     = [];
   if iscell(frameGrouping)
     pixelIndex    = frameGrouping{2};
-    remainIndex   = frameGrouping{3};
+    avgIndex      = frameGrouping{3};
+    averageAll    = numel(avgIndex) == 1 && avgIndex <= 0;
     if numel(frameGrouping) > 3
       addGrouping = frameGrouping{4};
     end
@@ -160,7 +201,11 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
       % Store only subset of pixels
       img         = reshape(img, [], size(img,3));
       movie(1:end-1,range)        = img(pixelIndex,:);
-      movie(end    ,range)        = mean(img(remainIndex,:), 1);
+      if averageAll
+        movie(end  ,range)        = mean(img(:,:), 1);
+      else
+        movie(end  ,range)        = mean(img(avgIndex,:), 1);
+      end
       
     elseif numel(imageFiles) == 1
       % If there is only one input file, avoid allocation overhead
@@ -182,7 +227,11 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     else
       img         = reshape(out.leftover, [], 1);
       movie(1:end-1,out.nFrames+1)  = img(pixelIndex,:);
-      movie(end    ,out.nFrames+1)  = mean(img(remainIndex,:), 1);
+      if averageAll
+        movie(end  ,out.nFrames+1)  = mean(img(:,:), 1);
+      else
+        movie(end  ,out.nFrames+1)  = mean(img(avgIndex,:), 1);
+      end
     end
   end
   if sub.nLeft > 0
