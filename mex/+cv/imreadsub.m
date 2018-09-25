@@ -164,10 +164,12 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   sub             = struct('nFrames', {0}, 'nLeft', {0}, 'leftover', {[]});
   if verbose
     fprintf('      Processing file        ');
+    drawnow;
   end
   for iFile = 1:numel(imageFiles)
     if verbose
       fprintf('\b\b\b\b\b\b\b%3d/%-3d', iFile, numel(imageFiles));
+      drawnow;
     end
   
     %% Read in the image and apply motion correction shifts
@@ -210,12 +212,12 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     if storePixels
       % Store only subset of pixels
       img         = reshape(img, [], size(img,3));
-      movie(1:numel(pixelIndex),range)  = img(pixelIndex,:);
+      movie(1:numel(pixelIndex),range)        = img(pixelIndex,:);
       for iAvg = 1:numel(avgIndex)
         if averageAll(iAvg)
-          movie(end-1+iAvg,range) = mean(img(:,:), 1);
+          movie(numel(pixelIndex)+iAvg,range) = mean(img(:,:), 1);
         else
-          movie(end-1+iAvg,range) = mean(img(avgIndex{iAvg},:), 1);
+          movie(numel(pixelIndex)+iAvg,range) = mean(img(avgIndex{iAvg},:), 1);
         end
       end
       
@@ -231,17 +233,17 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   
   %% Don't forget last frame in rebinned movies
   if verbose
-    fprintf(' ... finalizing.');
+    fprintf(' ... finalizing.\n');
   end
   if out.nLeft > 0
     if storePixels
       img         = reshape(out.leftover, [], 1);
-      movie(1:numel(pixelIndex),out.nFrames+1)  = img(pixelIndex,:);
+      movie(1:numel(pixelIndex),out.nFrames+1)        = img(pixelIndex,:);
       for iAvg = 1:numel(avgIndex)
         if averageAll
-          movie(end-1+iAvg,out.nFrames+1)       = mean(img(:,:), 1);
+          movie(numel(pixelIndex)+iAvg,out.nFrames+1) = mean(img(:,:), 1);
         else
-          movie(end-1+iAvg,out.nFrames+1)       = mean(img(avgIndex{iAvg},:), 1);
+          movie(numel(pixelIndex)+iAvg,out.nFrames+1) = mean(img(avgIndex{iAvg},:), 1);
         end
       end
     else
