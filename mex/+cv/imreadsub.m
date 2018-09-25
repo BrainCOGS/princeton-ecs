@@ -18,7 +18,9 @@
 %                      frameGrouping * addGrouping. N.B. Pixel indices are relative to the cropped
 %                      movie (see cropping input argument), and a single non-positive number (as
 %                      opposed to a list of pixels) for avgIndex will average across all pixels in
-%                      the cropped input movie. 
+%                      the cropped input movie. avgIndex can also be specified as a cell array of
+%                      lists of pixel indices, which will produce as many additional rows of the
+%                      output movie as there are avgIndex lists.
 %   cropping         : Struct for info on how to crop the borders of the movie e.g. as produced by
 %                      getMovieCropping() in order to remove areas where one or more frames have no
 %                      info due to applied translations for motion correction. If empty, no cropping
@@ -90,7 +92,13 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   if iscell(frameGrouping)
     pixelIndex    = frameGrouping{2};
     avgIndex      = frameGrouping{3};
-    averageAll    = numel(avgIndex) == 1 && avgIndex <= 0;
+    if ~isempty(avgIndex)
+      if ~iscell(avgIndex)
+        avgIndex  = {avgIndex};
+      end
+      averageAll  = cellfun(@(x) numel(x) == 1 && x <= 0, avgIndex);
+    end
+    
     if numel(frameGrouping) > 3
       addGrouping = frameGrouping{4};
     end
@@ -120,7 +128,7 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   totalFrames     = ceil(sum(info.fileFrames) / frameGrouping);
   inputSize       = [frameSize, totalFrames];
   if storePixels
-    movieSize     = [numel(pixelIndex) + 1, totalFrames];
+    movieSize     = [numel(pixelIndex) + numel(avgIndex), totalFrames];
   else
     movieSize     = inputSize;
   end
@@ -202,11 +210,13 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
     if storePixels
       % Store only subset of pixels
       img         = reshape(img, [], size(img,3));
-      movie(1:end-1,range)        = img(pixelIndex,:);
-      if averageAll
-        movie(end  ,range)        = mean(img(:,:), 1);
-      else
-        movie(end  ,range)        = mean(img(avgIndex,:), 1);
+      movie(1:numel(pixelIndex),range)  = img(pixelIndex,:);
+      for iAvg = 1:numel(avgIndex)
+        if averageAll(iAvg)
+          movie(end-1+iAvg,range) = mean(img(:,:), 1);
+        else
+          movie(end-1+iAvg,range) = mean(img(avgIndex{iAvg},:), 1);
+        end
       end
       
     elseif numel(imageFiles) == 1
@@ -226,11 +236,13 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
   if out.nLeft > 0
     if storePixels
       img         = reshape(out.leftover, [], 1);
-      movie(1:end-1,out.nFrames+1)  = img(pixelIndex,:);
-      if averageAll
-        movie(end  ,out.nFrames+1)  = mean(img(:,:), 1);
-      else
-        movie(end  ,out.nFrames+1)  = mean(img(avgIndex,:), 1);
+      movie(1:numel(pixelIndex),out.nFrames+1)  = img(pixelIndex,:);
+      for iAvg = 1:numel(avgIndex)
+        if averageAll
+          movie(end-1+iAvg,out.nFrames+1)       = mean(img(:,:), 1);
+        else
+          movie(end-1+iAvg,out.nFrames+1)       = mean(img(avgIndex{iAvg},:), 1);
+        end
       end
     else
       movie(:,:,out.nFrames+1)      = out.leftover / out.nLeft;
