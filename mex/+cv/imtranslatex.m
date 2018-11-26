@@ -1,4 +1,4 @@
-% IMTRANSLATEX    Applies row/column shifts (rigid translation) to each frame.
+% /USR/PEOPLE/KOAY/CODE/PRINCETON-ECS/MEX/+CV/IMTRANSLATEX.MEXA64    Applies row/column shifts (rigid translation) to each frame.
 %
 %  Usage syntax:
 %    image = imtranslatex( original, xShift, yShift                                ...

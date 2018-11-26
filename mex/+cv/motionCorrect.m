@@ -1,4 +1,4 @@
-% MOTIONCORRECT    Computes a motion corrected version of the given movie using cv::matchTemplate().
+% /USR/PEOPLE/KOAY/CODE/PRINCETON-ECS/MEX/+CV/MOTIONCORRECT.MEXA64    Computes a motion corrected version of the given movie using cv::matchTemplate().
 %
 %  Usage syntax:
 %    mc  = cv.motionCorrect( inputPath, maxShift, maxIter                                  ...
