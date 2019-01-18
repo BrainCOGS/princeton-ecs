@@ -211,6 +211,10 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
                   = onTheFlyRebin(img, addGrouping, sub);
       binnedMovie(:,:,bRange)     = binned;
     end
+    
+    if isempty(img)       % this can happen if there are less frames than the frame group
+      continue;
+    end
 
     %% Store in the target chunk, optionally as a list of pixels
     if storePixels
