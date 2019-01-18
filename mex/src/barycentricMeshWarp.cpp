@@ -123,13 +123,13 @@ void barycentricMeshWarp( const mxArray* source, mxArray* target, const mxArray*
           TruncatorFcn  fTrunc          = truncator[iDir < 0];
           
           // Location of the source triangle in the coordinate system of the target image
-          const double  oWarped[]       = { xLoc[iY+iTri      + nPatchY*(iX+iTri)     ] - 1
-                                          , yLoc[iY+iTri      + nPatchY*(iX+iTri)     ] - 1
+          const double  oWarped[]       = { static_cast<double>(xLoc[iY+iTri      + nPatchY*(iX+iTri)     ]) - 1
+                                          , static_cast<double>(yLoc[iY+iTri      + nPatchY*(iX+iTri)     ]) - 1
                                           };
-          const double  shape[]         = { xLoc[iY+iTri      + nPatchY*(iX+iTri+iDir)] - 1 - oWarped[0]
-                                          , yLoc[iY+iTri      + nPatchY*(iX+iTri+iDir)] - 1 - oWarped[1]
-                                          , xLoc[iY+iTri+iDir + nPatchY*(iX+iTri     )] - 1 - oWarped[0]
-                                          , yLoc[iY+iTri+iDir + nPatchY*(iX+iTri     )] - 1 - oWarped[1]
+          const double  shape[]         = { static_cast<double>(xLoc[iY+iTri      + nPatchY*(iX+iTri+iDir)]) - 1 - oWarped[0]
+                                          , static_cast<double>(yLoc[iY+iTri      + nPatchY*(iX+iTri+iDir)]) - 1 - oWarped[1]
+                                          , static_cast<double>(xLoc[iY+iTri+iDir + nPatchY*(iX+iTri     )]) - 1 - oWarped[0]
+                                          , static_cast<double>(yLoc[iY+iTri+iDir + nPatchY*(iX+iTri     )]) - 1 - oWarped[1]
                                           };
 
 
@@ -180,7 +180,7 @@ void barycentricMeshWarp( const mxArray* source, mxArray* target, const mxArray*
             for (int jGrid = nMin[1]; jGrid <= nMax[1]; ++jGrid) {
 
               double    bcTest[2];
-              double    rGrid[]         = {iGrid, jGrid};
+              double    rGrid[]         = {static_cast<double>(iGrid), static_cast<double>(jGrid)};
               matrixMultiply(bcTest, invShape, rGrid);
               vectorAddTo(bcTest, bcGridOrig);
 

@@ -1,4 +1,4 @@
-% ADAPTIVEMEDIANFILTER    Computes a median filtered image using a mask to select pixels to include. NaN-valued pixels are ignored.
+% /USR/PEOPLE/KOAY/CODE/PRINCETON-ECS/MEX/+CV/ADAPTIVEMEDIANFILTER.MEXA64    Computes a median filtered image using a mask to select pixels to include. NaN-valued pixels are ignored.
 %
 %  Usage syntax:
 %    filtered  = cv.adaptiveMedianFilter(image, category, numCategories, targetFracPixels, [isSelected = []], [emptyValue = nan]);
