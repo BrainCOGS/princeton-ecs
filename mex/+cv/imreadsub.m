@@ -182,6 +182,10 @@ function [movie, binnedMovie, inputSize, info] = imreadsub(imageFiles, motionCor
       img         = cv.imreadx(imageFiles{iFile}, motionCorr(iFile).xShifts(:,end), motionCorr(iFile).yShifts(:,end), varargin{:});
     end
     
+    %% Special case for empty files
+    if isempty(img)
+      continue;
+    end
     
     %% Crop border if so requested
     if ~isempty(cropping)
