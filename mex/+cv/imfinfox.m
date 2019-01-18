@@ -1,4 +1,4 @@
-% /USR/PEOPLE/KOAY/CODE/PRINCETON-ECS/MEX/+CV/IMFINFOX.MEXA64    Gets information about an image stack with minimal amount of frame reading.
+% IMFINFOX    Gets information about an image stack with minimal amount of frame reading.
 %
 %  The data structure returned by this function can be passed to subsequent
 %  functions like cv.imreadx() to actually load the frames, obtain motion

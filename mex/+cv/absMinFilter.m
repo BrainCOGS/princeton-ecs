@@ -1,4 +1,4 @@
-% /USR/PEOPLE/KOAY/CODE/PRINCETON-ECS/MEX/+CV/ABSMINFILTER.MEXA64    Computes a median filtered image using a selection mask to select pixels to include. 
+% ABSMINFILTER    Computes a median filtered image using a selection mask to select pixels to include. 
 %
 %  Usage syntax:
 %    filtered  = cv.absMinFilter(image, weight, [refValue = 0], [masked = []], [isSelected = []], [minWeight = 0], [emptyValue = nan]);

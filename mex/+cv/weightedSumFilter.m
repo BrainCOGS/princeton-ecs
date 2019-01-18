@@ -1,4 +1,4 @@
-% /USR/PEOPLE/KOAY/CODE/PRINCETON-ECS/MEX/+CV/WEIGHTEDSUMFILTER.MEXA64    Computes a median filtered image using a selection mask to select pixels to include. 
+% WEIGHTEDSUMFILTER    Computes a median filtered image using a selection mask to select pixels to include. 
 %
 %  Usage syntax:
 %    filtered  = cv.weightedSumFilter(image, weight, [masked = []], [isSelected = []], [minWeight = 0], [emptyValue = nan]);

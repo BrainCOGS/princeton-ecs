@@ -315,8 +315,8 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
   end
   
   for iFile = 1:numel(srcFile)
-    [~, target, ~]  = fileparts(srcFile(iFile).name);
-    target          = fullfile(outDir, [target '.' outExt]);
+    [~,targetName,~]= fileparts(srcFile(iFile).name);
+    target          = fullfile(outDir, [targetName '.' outExt]);
     [~,targetM,~]   = fileparts(target);
     targetMFile     = fullfile(outDir, [targetM '.m']);
     outFile{iFile}  = target;
@@ -381,7 +381,7 @@ function outFile = doCompile(srcFile, srcDir, outDir, outExt, options, generateM
 
       targetID      = fopen(targetMFile, 'w');
       fprintf ( targetID, '%% %s    %s\n%%\n%%%s\n'                     ...
-              , upper(target), srcDoc{1}{1}                             ...
+              , upper(targetName), srcDoc{1}{1}                         ...
               , strrep(srcDoc{1}{2}, sprintf('\n'), sprintf('\n%%'))    ...
               );
       fclose(targetID);
