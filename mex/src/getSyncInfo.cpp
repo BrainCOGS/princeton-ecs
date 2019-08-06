@@ -144,17 +144,18 @@ void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpo
         ++desc;
         dataTime.push_back(std::strtod(desc, &desc));
 
-        // Parse data packet
+        // Parse data packet of the format: {timestamp, [x1 x2 ... xN]} --OR-- {timestamp, [x1,x2,...,xN]}
         for (; *desc != '['; ++desc) {
           if (!*desc || *desc == '\n')
             mexErrMsgIdAndTxt("getSyncInfo:header", "Failed to parse %s for frame %d of '%s'.", DATA_NAME, nFrames+1, inputFile);
         }
 
         int             count         = 0;
-        for (++desc; *desc != ']'; ++desc, ++count) {
+        for (++desc; *desc != ']'; ++count) {
           if (!*desc || *desc == '\n')
             mexErrMsgIdAndTxt("getSyncInfo:header", "Failed to parse %s for frame %d of '%s'.", DATA_NAME, nFrames+1, inputFile);
 
+          // Read in the number of bytes for the specified data size of the packet, and convert this to one item of data
           for (int iByte = 0; iByte < NumBytes; ++iByte) {
             const char* current       = desc;
             temp[iByte] = static_cast<unsigned char>(std::strtoul(current, &desc, 10));
@@ -162,6 +163,10 @@ void parseInfo(const char* inputFile, mxArray*& matAcquisition, mxArray*& matEpo
               if (iByte < 1)  break;
               mexErrMsgIdAndTxt("getSyncInfo:header", "Failed to parse %s entry %d for frame %d of '%s'.", DATA_NAME, count, nFrames+1, inputFile);
             }
+
+            // The delimiter depends on version of ScanImage, if this changes, should be added here
+            while (*desc == ' ' || *desc == ',')
+              ++desc;
           }
           data.push_back(*reinterpret_cast<Number*>(temp));
         }
@@ -262,4 +267,3 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   else if (strcmp(dataType.data(), "double") == 0)   parseInfo<double        , 8>(inputFile.data(), plhs[0], plhs[1], plhs[2], plhs[3], plhs[4], mxDOUBLE_CLASS, firstFrame, skipFrames);  
   else    mexErrMsgIdAndTxt("getSyncInfo:dataType", "Unsupported dataType '%s'.", dataType.data());
 }
-
