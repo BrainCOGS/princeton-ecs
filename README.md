@@ -5,7 +5,9 @@ Originally Andrea Giovannucci's Princeton Extensible Calcium-Imaging Suite
 Visual C++ redistributables for version 2015 or later:
 https://www.microsoft.com/en-us/download/details.aspx?id=48145
 
-Or, you can also install the full compiler package.
+Or, you can also install the full compiler package:
+https://visualstudio.microsoft.com/downloads/
+If so, make sure that the C++ compiler options are checked as part of the installation packages selection process.
 
 ### Required for compilation on Windows (but not running presupplied MEX programs)
 Download the repository:  https://github.com/sakoay/libtiff
