@@ -7,6 +7,7 @@ https://www.microsoft.com/en-us/download/details.aspx?id=48145
 
 Or, you can also install the full compiler package:
 https://visualstudio.microsoft.com/downloads/
+
 If so, make sure that the C++ compiler options are checked as part of the installation packages selection process.
 
 ### Required for compilation on Windows (but not running presupplied MEX programs)
