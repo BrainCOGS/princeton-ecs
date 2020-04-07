@@ -30,7 +30,8 @@ function installGitHooks(codeDir)
   %%
   versioning    = fullfile(gitDir, '..', 'version.txt');
   if ~exist(versioning, 'file')
-    system(sprintf('git -C "%s" log -1 --pretty=oneline HEAD > %s', gitDir, versioning));
+%     system(sprintf('git -C "%s" log -1 --pretty=oneline HEAD > %s', gitDir, versioning));
+    system(sprintf('git --git-dir "%s" log -1 --pretty=oneline HEAD > %s', gitDir, versioning));
   end
   
   %%
