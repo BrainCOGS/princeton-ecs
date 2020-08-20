@@ -1,5 +1,5 @@
 %% Run motion correction over a given set of input files, including global registration across files
-function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, globalRegistration, varargin)
+function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, globalRegistration, savedir, varargin)
   
   %% Default arguments
   if nargin < 2
@@ -9,6 +9,9 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     globalRegistration          = true;
   end
   if nargin < 4
+    savedir                     = '';
+  end
+  if nargin < 5
     varargin                    = {30, 5, false, 0.3};
   end
   
@@ -50,8 +53,12 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   frameCorr                     = cell(size(inputFiles));
   corrPath                      = cell(size(inputFiles));
   for iFile = 1:numel(inputFiles)
-    [dir,name]                  = fileparts(inputFiles{iFile});
-    corrPath{iFile}             = fullfile(dir, [name '.mcorr.mat']);
+      if isempty(savedir)
+        [dir,name]                  = fileparts(inputFiles{iFile});
+        corrPath{iFile}             = fullfile(dir, [name '.mcorr.mat']);
+      else
+        corrPath{iFile}             = fullfile(savedir, [name '.mcorr.mat']);
+      end
 
     if ~recompute && exist(corrPath{iFile}, 'file')
       mcorr                     = load(corrPath{iFile});

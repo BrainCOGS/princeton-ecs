@@ -1,4 +1,4 @@
-% /USR/PEOPLE/KOAY/CODE/PRINCETON-ECS/MEX/+CV/BARYCENTRICMESHWARP.MEXA64    Very fast warping with locally linear assumptions.
+% BARYCENTRICMESHWARP    Very fast warping with locally linear assumptions.
 %
 %  Usage syntax:
 %    interpolated = cv.barycentricMeshWarp(source, xSample, ySample, xTarget, yTarget);
