@@ -53,8 +53,8 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
   frameCorr                     = cell(size(inputFiles));
   corrPath                      = cell(size(inputFiles));
   for iFile = 1:numel(inputFiles)
-      if isempty(savedir)
-        [dir,name]                  = fileparts(inputFiles{iFile});
+      [dir,name]                  = fileparts(inputFiles{iFile});
+      if isempty(savedir)  
         corrPath{iFile}             = fullfile(dir, [name '.mcorr.mat']);
       else
         corrPath{iFile}             = fullfile(savedir, [name '.mcorr.mat']);
