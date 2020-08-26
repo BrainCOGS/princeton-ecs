@@ -1,7 +1,8 @@
 %% Run motion correction over a given set of input files, including global registration across files
-function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, globalRegistration, savedir, varargin)
+function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, globalRegistration, varargin)
   
   %% Default arguments
+  savedir = '';
   if nargin < 2
     recompute                   = false;
   end
@@ -9,10 +10,15 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
     globalRegistration          = true;
   end
   if nargin < 4
-    savedir                     = '';
-  end
-  if nargin < 5
     varargin                    = {30, 5, false, 0.3};
+  else
+      for i=1:length(varargin)-1
+          if strcmp(varargin{i}, 'SaveDir')
+              savedir = varargin{i+1};
+              varargin(i:i+1) = [];
+              break;
+          end
+      end
   end
   
   forceLoad                     = false;
