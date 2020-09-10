@@ -19,6 +19,9 @@ function [frameCorr, fileCorr] = getMotionCorrection(inputFiles, recompute, glob
               break;
           end
       end
+      if isempty(varargin)
+          varargin                    = {30, 5, false, 0.3};
+      end
   end
   
   forceLoad                     = false;
