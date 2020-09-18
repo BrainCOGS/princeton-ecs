@@ -73,7 +73,9 @@ function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel,
   if doParallel
     %% Parallelize application of shifts by chunking the movie into subsets of frames
     frameChunks         = round(linspace(1, nFrames+1, pool.NumWorkers + 1));
+    frameChunks
     chunkSize           = diff(frameChunks);
+    chunkSize
     movie               = mat2cell(rigid, nRows, nCols, chunkSize);
     if clearRigid
       clear rigid;
@@ -81,7 +83,7 @@ function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel,
     
     patchXLoc           = mat2cell(patchXLoc, numel(yCenter), numel(xCenter), chunkSize);
     patchYLoc           = mat2cell(patchYLoc, numel(yCenter), numel(xCenter), chunkSize);
-    parfor iChunk = 1:numel(movie)
+    for iChunk = 1:numel(movie)
       movie{iChunk}     = cv.barycentricMeshWarp(movie{iChunk}, xCenter, yCenter, patchXLoc{iChunk}, patchYLoc{iChunk});
     end
     movie               = cat(3, movie{:});
