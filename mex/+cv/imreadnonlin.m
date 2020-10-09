@@ -83,7 +83,7 @@ function [movie, rigid] = imreadnonlin( inputPath, mcorr, frameSkip, doParallel,
     
     patchXLoc           = mat2cell(patchXLoc, numel(yCenter), numel(xCenter), chunkSize);
     patchYLoc           = mat2cell(patchYLoc, numel(yCenter), numel(xCenter), chunkSize);
-    for iChunk = 1:numel(movie)
+    parfor iChunk = 1:numel(movie)
       movie{iChunk}     = cv.barycentricMeshWarp(movie{iChunk}, xCenter, yCenter, patchXLoc{iChunk}, patchYLoc{iChunk});
     end
     movie               = cat(3, movie{:});
